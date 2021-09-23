@@ -30,7 +30,7 @@ import numpy as np
 
 from ruck import *
 from ruck import EaModule
-from ruck import PopulationHint
+from ruck import Population
 
 
 class OneMaxModule(EaModule):
@@ -45,7 +45,7 @@ class OneMaxModule(EaModule):
         super().__init__()
         self.save_hyperparameters()
 
-    def gen_starting_population(self) -> PopulationHint:
+    def gen_starting_population(self) -> Population:
         return [
             Member(np.random.random(self.hparams.member_size) < 0.5)
             for _ in range(self.hparams.population_size)
@@ -56,7 +56,7 @@ class OneMaxModule(EaModule):
         # it does not make use of numpy operations
         return value.sum()
 
-    def generate_offspring(self, population: PopulationHint) -> PopulationHint:
+    def generate_offspring(self, population: Population) -> Population:
         # Same as deap.algorithms.eaSimple which uses deap.algorithms.varAnd
         offspring = R.select_tournament(population, len(population), k=3)  # tools.selNSGA2
         # vary population
@@ -68,7 +68,7 @@ class OneMaxModule(EaModule):
             p_mutate=self.hparams.p_mutate,
         )
 
-    def select_population(self, population: PopulationHint, offspring: PopulationHint) -> PopulationHint:
+    def select_population(self, population: Population, offspring: Population) -> Population:
         # Same as deap.algorithms.eaSimple
         return offspring
 

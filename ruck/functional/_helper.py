@@ -23,7 +23,7 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 from ruck._member import Member
-from ruck._member import PopulationHint
+from ruck._member import Population
 from ruck.functional._mate import MateFnHint
 from ruck.functional._mutate import MutateFnHint
 
@@ -38,10 +38,10 @@ import numpy as np
 
 
 def apply_mate(
-    population: PopulationHint,
+    population: Population,
     mate_fn: MateFnHint,
     p: float = 0.5,
-) -> PopulationHint:
+) -> Population:
     # randomize order so we have randomized pairs
     offspring = list(population)
     np.random.shuffle(offspring)
@@ -55,10 +55,10 @@ def apply_mate(
 
 
 def apply_mutate(
-    population: PopulationHint,
+    population: Population,
     mutate_fn: MutateFnHint,
     p: float = 0.5,
-) -> PopulationHint:
+) -> Population:
     elem_mask = np.random.random(size=len(population)) < p
     # apply mutate to population
     return [
@@ -68,12 +68,12 @@ def apply_mutate(
 
 
 def apply_mate_and_mutate(
-    population: PopulationHint,
+    population: Population,
     mate_fn: MateFnHint,
     mutate_fn: MutateFnHint,
     p_mate: float = 0.5,
     p_mutate: float = 0.5,
-) -> PopulationHint:
+) -> Population:
     """
     Apply crossover AND mutation
 
@@ -89,13 +89,13 @@ def apply_mate_and_mutate(
 
 
 def apply_mate_or_mutate_or_reproduce(
-    population: PopulationHint,
+    population: Population,
     num_offspring: int,  # lambda_
     mate_fn: MateFnHint,
     mutate_fn: MutateFnHint,
     p_mate: float = 0.5,
     p_mutate: float = 0.5,
-) -> PopulationHint:
+) -> Population:
     """
     Apply crossover OR mutation OR reproduction
 

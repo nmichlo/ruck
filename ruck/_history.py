@@ -30,7 +30,7 @@ from typing import Dict
 from typing import List
 
 
-from ruck._member import PopulationHint
+from ruck._member import Population
 
 
 # ========================================================================= #
@@ -109,7 +109,7 @@ class Logbook(object):
         self._all_ordered_keys.extend(f'{name}:{key}' for key in stats_group.keys)
         return self
 
-    def record(self, population: 'PopulationHint', **external_values):
+    def record(self, population: 'Population', **external_values):
         # extra stats
         if set(external_values.keys()) != set(self._external_keys):
             raise KeyError(f'required external_values: {sorted(self._external_keys)}, got: {sorted(external_values.keys())}')
@@ -162,7 +162,7 @@ class HallOfFame(object):
         self._heap = []  # element 0 is always the smallest
         self._scores = {}
 
-    def update(self, population: PopulationHint):
+    def update(self, population: Population):
         best = sorted(population, key=lambda m: m.fitness, reverse=True)[:self._n_best]
         # add the best
         for member in best:
@@ -181,7 +181,7 @@ class HallOfFame(object):
                 del self._scores[removed.fitness]
 
     @property
-    def members(self) -> PopulationHint:
+    def members(self) -> Population:
         return [m.member for m in sorted(self._heap, reverse=True)]
 
     @property

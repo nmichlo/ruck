@@ -25,7 +25,7 @@
 
 # base
 from ruck._member import Member
-from ruck._member import PopulationHint
+from ruck._member import Population
 from ruck._module import EaModule
 
 # training

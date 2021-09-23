@@ -32,7 +32,7 @@ from ruck._history import HallOfFame
 from ruck._history import Logbook
 from ruck._history import StatsGroup
 from ruck._member import Member
-from ruck._member import PopulationHint
+from ruck._member import Population
 from ruck._module import EaModule
 
 
@@ -44,7 +44,7 @@ log = logging.getLogger(__name__)
 # ========================================================================= #
 
 
-def _check_population(population: PopulationHint, required_size: int) -> PopulationHint:
+def _check_population(population: Population, required_size: int) -> Population:
     assert len(population) > 0, 'population must not be empty'
     assert len(population) == required_size, 'population size is invalid'
     assert all(isinstance(member, Member) for member in population), 'items in population are not members'
@@ -84,7 +84,7 @@ def _check_population(population: PopulationHint, required_size: int) -> Populat
 # ========================================================================= #
 
 
-def _evaluate_unevaluated(module: EaModule, members: PopulationHint) -> int:
+def _evaluate_unevaluated(module: EaModule, members: Population) -> int:
     # get unevaluated members
     unevaluated = [m for m in members if not m.is_evaluated]
     # get fitness values

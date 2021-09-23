@@ -25,7 +25,7 @@
 import random
 from typing import Callable
 
-from ruck._member import PopulationHint
+from ruck._member import Population
 from ruck._util.random import random_choice_prng
 
 
@@ -34,22 +34,22 @@ from ruck._util.random import random_choice_prng
 # ========================================================================= #
 
 
-SelectFnHint = Callable[[PopulationHint, int], PopulationHint]
+SelectFnHint = Callable[[Population, int], Population]
 
 
-def select_best(population: PopulationHint, num: int) -> PopulationHint:
+def select_best(population: Population, num: int) -> Population:
     return sorted(population, key=lambda m: m.fitness, reverse=True)[:num]
 
 
-def select_worst(population: PopulationHint, num: int) -> PopulationHint:
+def select_worst(population: Population, num: int) -> Population:
     return sorted(population, key=lambda m: m.fitness, reverse=False)[:num]
 
 
-def select_random(population: PopulationHint, num: int) -> PopulationHint:
+def select_random(population: Population, num: int) -> Population:
     return random_choice_prng(population, size=num, replace=False)
 
 
-def select_tournament(population: PopulationHint, num: int, k: int = 3) -> PopulationHint:
+def select_tournament(population: Population, num: int, k: int = 3) -> Population:
     key = lambda m: m.fitness
     return [
         max(random.sample(population, k=k), key=key)

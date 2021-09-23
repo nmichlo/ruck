@@ -27,7 +27,7 @@ from typing import Dict
 from typing import List
 
 from ruck._history import StatsGroup
-from ruck._member import PopulationHint
+from ruck._member import Population
 from ruck._util.args import HParamsMixin
 
 
@@ -54,13 +54,13 @@ class EaModule(HParamsMixin):
 
     # REQUIRED
 
-    def gen_starting_population(self) -> PopulationHint:
+    def gen_starting_population(self) -> Population:
         raise NotImplementedError
 
-    def generate_offspring(self, population: PopulationHint) -> PopulationHint:
+    def generate_offspring(self, population: Population) -> Population:
         raise NotImplementedError
 
-    def select_population(self, population: PopulationHint, offspring: PopulationHint) -> PopulationHint:
+    def select_population(self, population: Population, offspring: Population) -> Population:
         raise NotImplementedError
 
     def evaluate_value(self, value: Any):
