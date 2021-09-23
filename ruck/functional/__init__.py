@@ -22,15 +22,9 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
+from ruck.functional._mate import *
+from ruck.functional._mutate import *
+from ruck.functional._select import *
 
-# base
-from ruck._member import Member
-from ruck._member import PopulationHint
-from ruck._module import EaModule
-
-# training
-from ruck._train import Trainer
-from ruck._train import yield_population_steps
-
-# functional utils
-from ruck import functional as R
+# helper -- should be replaced
+from ruck.functional._helper import *

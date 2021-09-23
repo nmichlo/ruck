@@ -22,15 +22,33 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
+from typing import Any
+from typing import Callable
 
-# base
-from ruck._member import Member
-from ruck._member import PopulationHint
-from ruck._module import EaModule
+import numpy as np
 
-# training
-from ruck._train import Trainer
-from ruck._train import yield_population_steps
 
-# functional utils
-from ruck import functional as R
+# ========================================================================= #
+# Mutate                                                                    #
+# ========================================================================= #
+
+
+MutateFnHint = Callable[[Any], Any]
+
+
+def mutate_flip_bits(a: np.ndarray, p: float = 0.05):
+    return a ^ (np.random.random(a.shape) < p)
+
+
+def mutate_flip_bit_types(a: np.ndarray, p: float = 0.05):
+    if np.random.random() < 0.5:
+        # flip set bits
+        return a ^ ((np.random.random(a.shape) < p) & a)
+    else:
+        # flip unset bits
+        return a ^ ((np.random.random(a.shape) < p) & ~a)
+
+
+# ========================================================================= #
+# END                                                                       #
+# ========================================================================= #

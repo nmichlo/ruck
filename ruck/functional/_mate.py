@@ -22,15 +22,30 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
+from typing import Any
+from typing import Callable
+from typing import Tuple
+import numpy as np
 
-# base
-from ruck._member import Member
-from ruck._member import PopulationHint
-from ruck._module import EaModule
 
-# training
-from ruck._train import Trainer
-from ruck._train import yield_population_steps
+# ========================================================================= #
+# Mate                                                                      #
+# ========================================================================= #
 
-# functional utils
-from ruck import functional as R
+
+MateFnHint = Callable[[Any, Any], Tuple[Any, Any]]
+
+
+def mate_crossover_1d(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    assert a.ndim == 1
+    assert a.shape == b.shape
+    i, j = np.random.randint(0, len(a), size=2)
+    i, j = min(i, j), max(i, j)
+    new_a = np.concatenate([a[:i], b[i:j], a[j:]], axis=0)
+    new_b = np.concatenate([b[:i], a[i:j], b[j:]], axis=0)
+    return new_a, new_b
+
+
+# ========================================================================= #
+# END                                                                       #
+# ========================================================================= #

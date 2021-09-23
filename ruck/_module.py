@@ -22,15 +22,46 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
+from typing import Any
+from typing import Dict
 
-# base
-from ruck._member import Member
+from ruck._history import StatsGroup
 from ruck._member import PopulationHint
-from ruck._module import EaModule
+from ruck._util.args import HParamsMixin
 
-# training
-from ruck._train import Trainer
-from ruck._train import yield_population_steps
 
-# functional utils
-from ruck import functional as R
+# ========================================================================= #
+# Module                                                                    #
+# ========================================================================= #
+
+
+class EaModule(HParamsMixin):
+
+    # OVERRIDE
+
+    def get_stats_groups(self) -> Dict[str, StatsGroup]:
+        return {}
+
+    def get_progress_stats(self):
+        return ('evals', 'fit:max',)
+
+    @property
+    def num_generations(self) -> int:
+        raise NotImplementedError
+
+    def gen_starting_population(self) -> PopulationHint:
+        raise NotImplementedError
+
+    def generate_offspring(self, population: PopulationHint) -> PopulationHint:
+        raise NotImplementedError
+
+    def select_population(self, population: PopulationHint, offspring: PopulationHint) -> PopulationHint:
+        raise NotImplementedError
+
+    def evaluate_member(self, value: Any) -> float:
+        raise NotImplementedError
+
+
+# ========================================================================= #
+# END                                                                       #
+# ========================================================================= #
