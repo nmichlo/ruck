@@ -22,8 +22,9 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-
+import itertools
 import logging
+
 import numpy as np
 from tqdm import tqdm
 
@@ -65,8 +66,8 @@ def _check_population(population: PopulationHint, required_size: int) -> Populat
 # ========================================================================= #
 
 
-def _eval_sequential(population: PopulationHint, eval_fn):
-    return [eval_fn(member.value) for member in population]
+# def _eval_sequential(population: PopulationHint, eval_fn):
+#     return [eval_fn(member.value) for member in population]
 
 
 # _evaluate_ray = ray.remote(_eval_sequential)
@@ -83,14 +84,16 @@ def _eval_sequential(population: PopulationHint, eval_fn):
 # ========================================================================= #
 
 
-def _evaluate_invalid(population: PopulationHint, eval_fn):
-    unevaluated = [member for member in population if not member.is_evaluated]
-    # get scores
-    scores = _eval_sequential(unevaluated, eval_fn)
-    # set values
-    for member, score in zip(unevaluated, scores):
-        member.fitness = score
-    # return number of evaluations
+def _evaluate_unevaluated(module: EaModule, members: PopulationHint) -> int:
+    # get unevaluated members
+    unevaluated = [m for m in members if not m.is_evaluated]
+    # get fitness values
+    fitnesses = module.evaluate_values([m.value for m in unevaluated])
+    # save fitness values
+    assert len(unevaluated) == len(fitnesses)
+    for m, f in zip(unevaluated, fitnesses):
+        m.fitness = f
+    # return the count
     return len(unevaluated)
 
 
@@ -106,23 +109,23 @@ def yield_population_steps(module: EaModule):
     population = _check_population(population, required_size=population_size)
 
     # 2. evaluate population
-    evaluations = _evaluate_invalid(population, eval_fn=module.evaluate_member)
+    evals = _evaluate_unevaluated(module, population)
 
     # yield initial population
-    yield 0, population, evaluations, population
+    yield 0, population, population, evals
 
     # training loop
-    for i in range(1, module.num_generations+1):
+    for i in itertools.count(1):
         # 1. generate offspring
         offspring = module.generate_offspring(population)
         # 2. evaluate
-        evaluations = _evaluate_invalid(offspring, eval_fn=module.evaluate_member)
+        evals = _evaluate_unevaluated(module, offspring)
         # 3. select
         population = module.select_population(population, offspring)
         population = _check_population(population, required_size=population_size)
 
         # yield steps
-        yield i, offspring, evaluations, population
+        yield i, population, offspring, evals
 
 
 # ========================================================================= #
@@ -134,11 +137,15 @@ class Trainer(object):
 
     def __init__(
         self,
+        generations: int = 100,
         progress: bool = True,
         history_n_best: int = 5,
+        offspring_generator=yield_population_steps,
     ):
+        self._generations = generations
         self._progress = progress
         self._history_n_best = history_n_best
+        self._offspring_generator = offspring_generator
         assert self._history_n_best > 0
 
     def fit(self, module: EaModule):
@@ -146,8 +153,8 @@ class Trainer(object):
         # history trackers
         logbook, halloffame = self._create_default_trackers(module)
         # progress bar and training loop
-        with tqdm(total=module.num_generations+1, desc='generation', disable=not self._progress, ncols=120) as p:
-            for gen, offspring, evals, population in yield_population_steps(module):
+        with tqdm(total=self._generations+1, desc='generation', disable=not self._progress, ncols=120) as p:
+            for gen, population, offspring, evals in itertools.islice(self._offspring_generator(module), self._generations):
                 # update statistics with new population
                 halloffame.update(offspring)
                 stats = logbook.record(population, gen=gen, evals=evals)

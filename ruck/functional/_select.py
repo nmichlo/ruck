@@ -25,7 +25,7 @@
 import random
 from typing import Callable
 
-from ruck import PopulationHint
+from ruck._member import PopulationHint
 from ruck._util.random import random_choice_prng
 
 

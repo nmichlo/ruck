@@ -37,7 +37,6 @@ class OneMaxModule(EaModule):
 
     def __init__(
         self,
-        generations: int = 40,
         population_size: int = 300,
         member_size: int = 100,
         p_mate: float = 0.5,
@@ -46,17 +45,13 @@ class OneMaxModule(EaModule):
         super().__init__()
         self.save_hyperparameters()
 
-    @property
-    def num_generations(self) -> int:
-        return self.hparams.generations
-
     def gen_starting_population(self) -> PopulationHint:
         return [
             Member(np.random.random(self.hparams.member_size) < 0.5)
             for _ in range(self.hparams.population_size)
         ]
 
-    def evaluate_member(self, value: np.ndarray) -> float:
+    def evaluate_value(self, value: np.ndarray) -> float:
         # this is a large reason why the deap version is slow,
         # it does not make use of numpy operations
         return value.sum()
@@ -88,11 +83,11 @@ if __name__ == '__main__':
     def Timer(name: str):
         t = time.time()
         yield
-        print(name, time.time() - t)
+        print(name, time.time() - t, 'seconds')
 
     with Timer('ruck:trainer'):
-        module = OneMaxModule(generations=40, population_size=300, member_size=100)
-        population, logbook, halloffame = Trainer(progress=False).fit(module)
+        module = OneMaxModule(population_size=300, member_size=100)
+        population, logbook, halloffame = Trainer(generations=40, progress=False).fit(module)
 
-    print(logbook[0])
-    print(logbook[-1])
+    print('initial stats:', logbook[0])
+    print('final stats:', logbook[-1])

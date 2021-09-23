@@ -22,10 +22,10 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-from ruck import Member
-from ruck import PopulationHint
-from ruck.functional import MateFnHint
-from ruck.functional import MutateFnHint
+from ruck._member import Member
+from ruck._member import PopulationHint
+from ruck.functional._mate import MateFnHint
+from ruck.functional._mutate import MutateFnHint
 
 
 import random

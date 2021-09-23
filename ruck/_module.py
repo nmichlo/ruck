@@ -24,6 +24,7 @@
 
 from typing import Any
 from typing import Dict
+from typing import List
 
 from ruck._history import StatsGroup
 from ruck._member import PopulationHint
@@ -37,17 +38,21 @@ from ruck._util.args import HParamsMixin
 
 class EaModule(HParamsMixin):
 
-    # OVERRIDE
+    # OVERRIDABLE DEFAULTS
 
     def get_stats_groups(self) -> Dict[str, StatsGroup]:
+        # additional stats to be recorded
         return {}
 
     def get_progress_stats(self):
+        # which stats are included in the progress bar
         return ('evals', 'fit:max',)
 
-    @property
-    def num_generations(self) -> int:
-        raise NotImplementedError
+    def evaluate_values(self, values: List[Any]) -> List[float]:
+        # we include this here so we can easily override to add multi-threading support
+        return [self.evaluate_value(value) for value in values]
+
+    # REQUIRED
 
     def gen_starting_population(self) -> PopulationHint:
         raise NotImplementedError
@@ -58,7 +63,7 @@ class EaModule(HParamsMixin):
     def select_population(self, population: PopulationHint, offspring: PopulationHint) -> PopulationHint:
         raise NotImplementedError
 
-    def evaluate_member(self, value: Any) -> float:
+    def evaluate_value(self, value: Any):
         raise NotImplementedError
 
 
