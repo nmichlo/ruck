@@ -38,8 +38,8 @@ class OneMaxModule(EaModule):
     def __init__(
         self,
         generations: int = 40,
-        population_size: int = 128,
-        member_size: int = 10_000,
+        population_size: int = 300,
+        member_size: int = 100,
         p_mate: float = 0.5,
         p_mutate: float = 0.5,
     ):
@@ -56,26 +56,30 @@ class OneMaxModule(EaModule):
             for _ in range(self.hparams.population_size)
         ]
 
+    def evaluate_member(self, value: np.ndarray) -> float:
+        # this is a large reason why the deap version is slow,
+        # it does not make use of numpy operations
+        return value.sum()
+
     def generate_offspring(self, population: PopulationHint) -> PopulationHint:
-        # SEE: R.factory_ea_alg -- TODO: make it easier to swap!
+        # Same as deap.algorithms.eaSimple which uses deap.algorithms.varAnd
+        offspring = R.select_tournament(population, len(population), k=3)  # tools.selNSGA2
+        # vary population
         return R.apply_mate_and_mutate(
-            population=R.select_tournament(population, len(population)),  # tools.selNSGA2
-            mate=R.mate_crossover_1d,
-            mutate=R.mutate_flip_bit_types,
+            population=offspring,
+            mate_fn=R.mate_crossover_1d,
+            mutate_fn=lambda a: R.mutate_flip_bits(a, p=0.05),
             p_mate=self.hparams.p_mate,
             p_mutate=self.hparams.p_mutate,
         )
 
     def select_population(self, population: PopulationHint, offspring: PopulationHint) -> PopulationHint:
+        # Same as deap.algorithms.eaSimple
         return offspring
-
-    def evaluate_member(self, value: np.ndarray) -> float:
-        return value.mean()
 
 
 if __name__ == '__main__':
-    # about 10x faster than the onemax (0.18s vs 2.6s)
-    # numpy version given for deap
+    # about 18x faster than deap's numpy onemax example (0.145s vs 2.6s)
     # -- https://github.com/DEAP/deap/blob/master/examples/ga/onemax_numpy.py
 
     logging.basicConfig(level=logging.INFO)
@@ -89,5 +93,6 @@ if __name__ == '__main__':
     with Timer('ruck:trainer'):
         module = OneMaxModule(generations=40, population_size=300, member_size=100)
         population, logbook, halloffame = Trainer(progress=False).fit(module)
+
     print(logbook[0])
     print(logbook[-1])

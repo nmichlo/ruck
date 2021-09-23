@@ -29,6 +29,7 @@ from ruck.functional import MutateFnHint
 
 
 import random
+import numpy as np
 
 
 # ========================================================================= #
@@ -36,76 +37,117 @@ import random
 # ========================================================================= #
 
 
+def apply_mate(
+    population: PopulationHint,
+    mate_fn: MateFnHint,
+    p: float = 0.5,
+) -> PopulationHint:
+    # randomize order so we have randomized pairs
+    offspring = list(population)
+    np.random.shuffle(offspring)
+    # apply mating to population -- why is this faster than pre-generating the boolean mask?
+    for i in range(1, len(population), 2):
+        if random.random() < p:
+            v0, v1 = mate_fn(offspring[i-1].value, offspring[i].value)
+            offspring[i-1], offspring[i] = Member(v0), Member(v1)
+    # done!
+    return offspring
+
+
+def apply_mutate(
+    population: PopulationHint,
+    mutate_fn: MutateFnHint,
+    p: float = 0.5,
+) -> PopulationHint:
+    elem_mask = np.random.random(size=len(population)) < p
+    # apply mutate to population
+    return [
+        Member(mutate_fn(m.value)) if do_mutate else m
+        for m, do_mutate in zip(population, elem_mask)
+    ]
+
+
 def apply_mate_and_mutate(
     population: PopulationHint,
-    mate: MateFnHint,
-    mutate: MutateFnHint,
-    p_mate: float,
-    p_mutate: float,
+    mate_fn: MateFnHint,
+    mutate_fn: MutateFnHint,
+    p_mate: float = 0.5,
+    p_mutate: float = 0.5,
 ) -> PopulationHint:
     """
-    Apply crossover AND mutation.
-    Modified individuals are independent of the population,
-    requiring their fitness to be re-evaluated.
+    Apply crossover AND mutation
 
-    NB: Mate & Mutate should return copies of the received values.
+    NOTE:
+    - Modified individuals need their fitness re-evaluated
+    - Mate & Mutate should always return copies of the received values.
 
-    ** Modified from DEAP **
+    ** Should be equivalent to varAnd from DEAP **
     """
-    offspring = list(population)
-
-    # EXTRA
-    random.shuffle(offspring)
-
-    # Apply crossover
-    for i in range(1, len(offspring), 2):
-        if random.random() < p_mate:
-            value0, value1 = mate(offspring[i - 1].value, offspring[i].value)
-            offspring[i - 1], offspring[i] = Member(value0), Member(value1)
-
-    # Apply Mutation
-    for i in range(len(offspring)):
-        if random.random() < p_mutate:
-            value = mutate(offspring[i].value)
-            offspring[i] = Member(value)
-
-    return offspring
+    population = apply_mate(population, mate_fn, p=p_mate)
+    population = apply_mutate(population, mutate_fn, p=p_mutate)
+    return population
 
 
 def apply_mate_or_mutate_or_reproduce(
     population: PopulationHint,
-    mate: MateFnHint,
-    mutate: MutateFnHint,
-    p_mate: float,
-    p_mutate: float,
     num_offspring: int,  # lambda_
+    mate_fn: MateFnHint,
+    mutate_fn: MutateFnHint,
+    p_mate: float = 0.5,
+    p_mutate: float = 0.5,
 ) -> PopulationHint:
     """
     Apply crossover OR mutation OR reproduction
-    Modified individuals are independent of the population,
-    requiring their fitness to be re-evaluated.
 
-    NB: Mate & Mutate should return copies of the received values.
+    NOTE:
+    - Modified individuals need their fitness re-evaluated
+    - Mate & Mutate should always return copies of the received values.
 
-    ** Modified from DEAP **
+    ** Should be equivalent to varOr from DEAP, but significantly faster for larger populations **
     """
     assert (p_mate + p_mutate) <= 1.0, 'The sum of the crossover and mutation probabilities must be smaller or equal to 1.0.'
 
-    offspring = []
-    for _ in range(num_offspring):
-        op_choice = random.random()
-        if op_choice < p_mate:
-            # Apply crossover
-            ind1, ind2 = random.sample(population, 2)
-            value, _ = mate(ind1.value, ind2.value)
-            offspring.append(Member(value))
-        elif op_choice < p_mate + p_mutate:
-            # Apply mutation
-            ind = random.choice(population)
-            value = mutate(ind.value)
-            offspring.append(Member(value))
-        else:
-            # Apply reproduction
-            offspring.append(random.choice(population))
+    pairs = np.random.randint(0, len(population), size=[2, num_offspring])
+    rand  = np.random.random(len(population))
 
-    return offspring
+    def _fn(a: int, b: int, r: float):
+        if   r < p_mate:            return Member(mate_fn(population[a].value, population[b].value)[0])  # Apply crossover
+        elif r < p_mate + p_mutate: return Member(mutate_fn(population[a].value))  # Apply mutation
+        else:                       return population[a]  # Apply reproduction
+
+    # np.vectorize can help, but only about 10% faster for large populations, and 3x slower for tiny populations
+    return [_fn(a, b, r) for a, b, r in zip(pairs[0], pairs[1], rand)]
+
+
+# ========================================================================= #
+# Gen & Select                                                              #
+# ========================================================================= #
+
+
+# def factory_ea_alg(
+#     mate_fn,
+#     mutate_fn,
+#     select_fn,
+#     mode: str = 'simple',
+#     p_mate: float = 0.5,
+#     p_mutate: float = 0.5,
+#     offspring_num: int = 128,
+#     population_num: int = 128,
+# ):
+#     if mode == 'simple':
+#         def _generate(population):          return apply_mate_and_mutate(population=select_fn(population, len(population)), p_mate=p_mate, mate=mate_fn, p_mutate=p_mutate, mutate=mutate_fn)
+#         def _select(population, offspring): return offspring
+#     elif mode == 'mu_plus_lambda':
+#         def _generate(population):          return apply_mate_or_mutate_or_reproduce(population, num_offspring=offspring_num, p_mate=p_mate, mate=mate_fn, p_mutate=p_mutate, mutate=mutate_fn)
+#         def _select(population, offspring): return select_fn(population + offspring, population_num)
+#     elif mode == 'mu_comma_lambda':
+#         def _generate(population):          return apply_mate_or_mutate_or_reproduce(population, num_offspring=offspring_num, p_mate=p_mate, mate=mate_fn, p_mutate=p_mutate, mutate=mutate_fn)
+#         def _select(population, offspring): return select_fn(offspring, population_num)
+#     else:
+#         raise KeyError(f'invalid mode: {repr(mode)}')
+#     return _generate, _select
+
+
+# # ========================================================================= #
+# # END                                                                       #
+# # ========================================================================= #
