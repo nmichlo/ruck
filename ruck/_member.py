@@ -89,10 +89,14 @@ class Member(Generic[T]):
         return repr(self)
 
     def __repr__(self):
-        if self.is_evaluated:
-            return f'{self.__class__.__name__}<{self.fitness}>'
-        else:
-            return f'{self.__class__.__name__}<>'
+        value_str = repr(self.value)
+        # cut short
+        if len(value_str) > 20:
+            value_str = f'{value_str[:20]} ...'
+        # get fitness
+        fitness_str = f', {self.fitness}' if self.is_evaluated else ''
+        # combine
+        return f'{self.__class__.__name__}({value_str}{fitness_str})'
 
 
 # ========================================================================= #

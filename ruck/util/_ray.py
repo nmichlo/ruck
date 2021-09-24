@@ -25,26 +25,15 @@
 import functools
 from typing import Any
 from typing import List
-from typing import Protocol
 from typing import Sequence
 
 import ray
 from ray.remote_function import RemoteFunction
 
-from ruck.util._iter import chained
-from ruck.util._iter import splits
-
 
 # ========================================================================= #
 # ray                                                                       #
 # ========================================================================= #
-
-
-class _RayFnHint(Protocol):
-    def remote(self, *args, **kwargs) -> Any:
-        pass
-    def __call__(self, *args, **kwargs) -> Any:
-        pass
 
 
 @functools.lru_cache(maxsize=16)
@@ -54,21 +43,69 @@ def _to_remote_ray_fn(fn):
     return fn
 
 
-@functools.lru_cache()
-def _cpus():
-    return ray.available_resources().get('CPU', 1)
+def ray_mapped(ray_fn, items: Sequence[Any]) -> List[Any]:
+    """
+    A more convenient alternative to `ray.util.multiprocessing.Pool`s `map` function!
+    Using a similar API to python `map`, except returning a list of mapped values
+    instead of an iterable.
 
-
-def ray_map(ray_fn: _RayFnHint, items: Sequence[Any]) -> List[Any]:
+    The advantage of this functions it that we automatically wrap passed functions to
+    ray.remote functions, also enabling automatic getting of ObjectRef values.
+    """
     # make sure the function is a remote function
     ray_fn = _to_remote_ray_fn(ray_fn)
     # pass each item to ray and wait for the result
     return ray.get(list(map(ray_fn.remote, items)))
 
 
-def ray_map_chunks(ray_fn: _RayFnHint, items: List[Any], num_chunks: int = None) -> List[Any]:
-    # split items into chunks, and pass each chunk to function, then chain results back together
-    return chained(ray_map(ray_fn, splits(items, num_chunks=num_chunks)))
+# ========================================================================= #
+# ray - object store                                                        #
+# ========================================================================= #
+
+
+def ray_refs_handler(fn = None, get: bool = True, put: bool = True, iter_results: bool = False):
+    """
+    Wrap a function so that we automatically ray.get
+    all the arguments and ray.put the result.
+
+    iter_results=True instead treats the result as an
+    iterable and applies ray.put to each result item
+
+    for example:
+    >>> def mate(a, b):
+    >>>    a, b = ray.get(a), ray.get(b)
+    >>>    a, b = R.mate_crossover_1d(a, b)
+    >>>    return ray.put(a), ray.put(b)
+
+    becomes:
+    >>> @ray_refs_handler(iter_results=True)
+    >>> def mate(a, b):
+    >>>     return R.mate_crossover_1d(a, b)
+    """
+
+    def wrapper(fn):
+        @functools.wraps(fn)
+        def inner(*args):
+            # get values from object store
+            if get:
+                args = (ray.get(v) for v in args)
+            # call function
+            result = fn(*args)
+            # store values in the object store
+            if put:
+                if iter_results:
+                    result = tuple(ray.put(v) for v in result)
+                else:
+                    result = ray.put(result)
+            # done!
+            return result
+        return inner
+
+    # handle correct case
+    if fn is None:
+        return wrapper
+    else:
+        return wrapper(fn)
 
 
 # ========================================================================= #

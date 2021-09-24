@@ -27,5 +27,5 @@ from ruck.util._timer import Timer
 
 from ruck.util._iter import splits
 from ruck.util._iter import chained
-from ruck.util._ray import ray_map
+from ruck.util._ray import ray_mapped
 from ruck.util._ray import ray_map_chunks

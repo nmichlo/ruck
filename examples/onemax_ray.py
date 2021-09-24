@@ -22,27 +22,23 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
+
+import functools
 import logging
-from functools import wraps
-from typing import Any
 from typing import List
 
 import numpy as np
+import psutil
 import ray
+from ray import ObjectRef
 
-from ruck import *
 from ruck import EaModule
 from ruck import Population
-from ruck.util import chained
-from ruck.util import ray_map
+from ruck import R
+from ruck import Trainer
+from ruck.util import ray_mapped
 from ruck.util import Timer
-from ruck.util._iter import ipairs
-
-from ruck.util._iter import itake_random
-from ruck.util._iter import random_map
-from ruck.util._iter import random_map_pairs
-from ruck.util._iter import replaced
-from ruck.util._iter import transposed
+from ruck.util._ray import ray_refs_handler
 
 
 # ========================================================================= #
@@ -50,61 +46,12 @@ from ruck.util._iter import transposed
 # ========================================================================= #
 
 
-def ray_store(get: bool = True, put: bool = True, iter_results: bool = False):
-    def wrapper(fn):
-        @wraps(fn)
-        def inner(*args):
-            # get values from object store
-            if get:
-                args = (ray.get(v) for v in args)
-            # call function
-            result = fn(*args)
-            # store values in the object store
-            if put:
-                if iter_results:
-                    result = tuple(ray.put(v) for v in result)
-                else:
-                    result = ray.put(result)
-            # done!
-            return result
-        return inner
-    return wrapper
+class OneMaxRayModule(EaModule[ObjectRef]):
 
-
-def member_values(unwrap: bool = True, wrap: bool = True, iter_results: bool = False):
-    def wrapper(fn):
-        @wraps(fn)
-        def inner(*args):
-            # unwrap member values
-            if unwrap:
-                args = (m.value for m in args)
-            # call function
-            result = fn(*args)
-            # wrap values withing members again
-            if wrap:
-                if iter_results:
-                    result = tuple(Member(v) for v in result)
-                else:
-                    result = Member(result)
-            # done!
-            return result
-        return inner
-    return wrapper
-
-
-@member_values(iter_results=True)
-@ray_store(iter_results=True)
-def mate(a, b):
-    return R.mate_crossover_1d(a, b)
-
-
-@member_values()
-@ray_store()
-def mutate(v):
-    return R.mutate_flip_bit_types(v, p=0.05)
-
-
-class OneMaxModule(EaModule):
+    # trick pycharm overrides error checking against `EaModule`
+    # it doesn't like that we set the values in the constructor!
+    generate_offspring = None
+    select_population = None
 
     def __init__(
         self,
@@ -113,27 +60,29 @@ class OneMaxModule(EaModule):
         p_mate: float = 0.5,
         p_mutate: float = 0.5,
     ):
-        super().__init__()
+        # save the arguments to the .hparams property. values are taken from the
+        # local scope so modifications can be captured if the call to this is delayed.
         self.save_hyperparameters()
+        # implement the required functions for `EaModule`
+        self.generate_offspring, self.select_population = R.factory_simple_ea(
+            mate_fn=ray_refs_handler(R.mate_crossover_1d, iter_results=True),
+            mutate_fn=ray_refs_handler(functools.partial(R.mutate_flip_bits, p=0.05)),
+            select_fn=functools.partial(R.select_tournament, k=3),  # tools.selNSGA2
+            p_mate=self.hparams.p_mate,
+            p_mutate=self.hparams.p_mutate,
+            map_fn=ray_mapped,
+        )
 
-    def gen_starting_values(self):
-        for _ in range(self.hparams.population_size):
-            yield ray.put(np.random.random(self.hparams.member_size) < 0.5)
+    def evaluate_values(self, values: List[ObjectRef]) -> List[float]:
+        # this is a large reason why the deap version is slow,
+        # it does not make use of numpy operations
+        return ray_mapped(np.sum, values)
 
-    def generate_offspring(self, population: Population) -> Population:
-        # Same as deap.algorithms.eaSimple which uses deap.algorithms.varAnd
-        offspring = list(population)
-        np.random.shuffle(offspring)
-        offspring = random_map_pairs(mate, offspring, p=self.hparams.p_mate, map_fn=ray_map)
-        offspring = random_map(mutate, offspring, p=self.hparams.p_mutate,   map_fn=ray_map)
-        # Done!
-        return offspring
-
-    def select_population(self, population: Population, offspring: Population) -> Population:
-        return R.select_tournament(population + offspring, len(population), k=3)  # TODO: tools.selNSGA2
-
-    def evaluate_values(self, values: List[Any]) -> List[float]:
-        return ray_map(np.mean, values)
+    def gen_starting_values(self) -> Population[ObjectRef]:
+        return [
+            ray.put(np.random.random(self.hparams.member_size) < 0.5)
+            for i in range(self.hparams.population_size)
+        ]
 
 
 # ========================================================================= #
@@ -142,16 +91,16 @@ class OneMaxModule(EaModule):
 
 
 if __name__ == '__main__':
-    # about 18x faster than deap's numpy onemax example (0.145s vs 2.6s)
+    # about 15x faster than deap's numpy onemax example (0.17s vs 2.6s)
     # -- https://github.com/DEAP/deap/blob/master/examples/ga/onemax_numpy.py
 
     logging.basicConfig(level=logging.INFO)
 
-    ray.init(num_cpus=64)
+    ray.init(num_cpus=min(psutil.cpu_count(), 16))
 
     with Timer('ruck:trainer'):
-        module = OneMaxModule(population_size=512, member_size=1_000_000)
-        pop, logbook, halloffame = Trainer(generations=1000, progress=True).fit(module)
+        module = OneMaxRayModule(population_size=512, member_size=1_000_000)
+        pop, logbook, halloffame = Trainer(generations=100, progress=False).fit(module)
 
     print('initial stats:', logbook[0])
     print('final stats:', logbook[-1])

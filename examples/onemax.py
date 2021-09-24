@@ -22,15 +22,17 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
+import functools
 import logging
 from typing import Any
 from typing import List
 
 import numpy as np
 
-from ruck import *
 from ruck import EaModule
 from ruck import Population
+from ruck import R
+from ruck import Trainer
 from ruck.util import Timer
 
 
@@ -41,6 +43,11 @@ from ruck.util import Timer
 
 class OneMaxModule(EaModule):
 
+    # trick pycharm overrides error checking against `EaModule`
+    # it doesn't like that we set the values in the constructor!
+    generate_offspring = None
+    select_population = None
+
     def __init__(
         self,
         population_size: int = 300,
@@ -48,8 +55,17 @@ class OneMaxModule(EaModule):
         p_mate: float = 0.5,
         p_mutate: float = 0.5,
     ):
-        super().__init__()
+        # save the arguments to the .hparams property. values are taken from the
+        # local scope so modifications can be captured if the call to this is delayed.
         self.save_hyperparameters()
+        # implement the required functions for `EaModule`
+        self.generate_offspring, self.select_population = R.factory_simple_ea(
+            mate_fn=R.mate_crossover_1d,
+            mutate_fn=functools.partial(R.mutate_flip_bits, p=0.05),
+            select_fn=functools.partial(R.select_tournament, k=3),  # tools.selNSGA2
+            p_mate=self.hparams.p_mate,
+            p_mutate=self.hparams.p_mutate,
+        )
 
     def evaluate_values(self, values: List[Any]):
         # this is a large reason why the deap version is slow,
@@ -57,25 +73,10 @@ class OneMaxModule(EaModule):
         return map(np.sum, values)
 
     def gen_starting_values(self) -> Population:
-        for _ in range(self.hparams.population_size):
-            yield np.random.random(self.hparams.member_size) < 0.5
-
-    def generate_offspring(self, population: Population) -> Population:
-        # Same as deap.algorithms.eaSimple which uses deap.algorithms.varAnd
-        offspring = R.select_tournament(population, len(population), k=3)  # tools.selNSGA2
-        # vary population
-        return R.apply_mate_and_mutate(
-            population=offspring,
-            mate_fn=R.mate_crossover_1d,
-            mutate_fn=lambda a: R.mutate_flip_bits(a, p=0.05),
-            p_mate=self.hparams.p_mate,
-            p_mutate=self.hparams.p_mutate,
-        )
-
-    def select_population(self, population: Population, offspring: Population) -> Population:
-        # Same as deap.algorithms.eaSimple
-        return offspring
-
+        return [
+            np.random.random(self.hparams.member_size) < 0.5
+            for i in range(self.hparams.population_size)
+        ]
 
 # ========================================================================= #
 # Main                                                                      #
@@ -83,7 +84,7 @@ class OneMaxModule(EaModule):
 
 
 if __name__ == '__main__':
-    # about 18x faster than deap's numpy onemax example (0.145s vs 2.6s)
+    # about 15x faster than deap's numpy onemax example (0.17s vs 2.6s)
     # -- https://github.com/DEAP/deap/blob/master/examples/ga/onemax_numpy.py
 
     logging.basicConfig(level=logging.INFO)
