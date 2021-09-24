@@ -23,14 +23,12 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 import logging
-import random
+from functools import wraps
 from typing import Any
 from typing import List
-from typing import Tuple
 
 import numpy as np
 import ray
-from ray import ObjectRef
 
 from ruck import *
 from ruck import EaModule
@@ -38,11 +36,72 @@ from ruck import Population
 from ruck.util import chained
 from ruck.util import ray_map
 from ruck.util import Timer
+from ruck.util._iter import ipairs
+
+from ruck.util._iter import itake_random
+from ruck.util._iter import random_map
+from ruck.util._iter import random_map_pairs
+from ruck.util._iter import replaced
+from ruck.util._iter import transposed
 
 
 # ========================================================================= #
 # Module                                                                    #
 # ========================================================================= #
+
+
+def ray_store(get: bool = True, put: bool = True, iter_results: bool = False):
+    def wrapper(fn):
+        @wraps(fn)
+        def inner(*args):
+            # get values from object store
+            if get:
+                args = (ray.get(v) for v in args)
+            # call function
+            result = fn(*args)
+            # store values in the object store
+            if put:
+                if iter_results:
+                    result = tuple(ray.put(v) for v in result)
+                else:
+                    result = ray.put(result)
+            # done!
+            return result
+        return inner
+    return wrapper
+
+
+def member_values(unwrap: bool = True, wrap: bool = True, iter_results: bool = False):
+    def wrapper(fn):
+        @wraps(fn)
+        def inner(*args):
+            # unwrap member values
+            if unwrap:
+                args = (m.value for m in args)
+            # call function
+            result = fn(*args)
+            # wrap values withing members again
+            if wrap:
+                if iter_results:
+                    result = tuple(Member(v) for v in result)
+                else:
+                    result = Member(result)
+            # done!
+            return result
+        return inner
+    return wrapper
+
+
+@member_values(iter_results=True)
+@ray_store(iter_results=True)
+def mate(a, b):
+    return R.mate_crossover_1d(a, b)
+
+
+@member_values()
+@ray_store()
+def mutate(v):
+    return R.mutate_flip_bit_types(v, p=0.05)
 
 
 class OneMaxModule(EaModule):
@@ -57,102 +116,24 @@ class OneMaxModule(EaModule):
         super().__init__()
         self.save_hyperparameters()
 
-    def gen_starting_population(self) -> Population:
-        # 2.0317113399505615
-        return [
-            Member(ray.put(np.random.random(self.hparams.member_size) < 0.5))
-            for _ in range(self.hparams.population_size)
-        ]
+    def gen_starting_values(self):
+        for _ in range(self.hparams.population_size):
+            yield ray.put(np.random.random(self.hparams.member_size) < 0.5)
 
     def generate_offspring(self, population: Population) -> Population:
-        # HACK
-        # 0.027140140533447266
-        # population = [Member(ray.get(m.value), m.fitness) for m in population]
         # Same as deap.algorithms.eaSimple which uses deap.algorithms.varAnd
-        # 0.0007593631744384766
-        offspring = R.select_tournament(population, len(population), k=3)  # tools.selNSGA2
-        # vary population
-        # 0.7187347412109375
-
-        @ray.remote
-        def mate_crossover_1d(a, b) -> Tuple[ObjectRef, ObjectRef]:
-            a, b = R.mate_crossover_1d(a, b)
-            return ray.put(a), ray.put(b)
-
-        @ray.remote
-        def mutate_flip_bits(a) -> ObjectRef:
-            a = R.mutate_flip_bits(a, p=0.05)
-            return ray.put(a)
-
-        with Timer('vary'):
-            # mate
-            random.shuffle(offspring)
-            futures, positions = [], []
-            for i, (a, b) in enumerate(zip(offspring[0::2], offspring[1::2])):
-                if random.random() < self.hparams.p_mate:
-                    futures.append(mate_crossover_1d.remote(a.value, b.value))
-                    positions.append(i)
-            for i, (a, b) in zip(positions, ray.get(futures)):
-                offspring[i*2+0] = Member(a)  # why does this step slow things down so much?
-                offspring[i*2+1] = Member(b)  # why does this step slow things down so much?
-
-            # mutate
-            futures, positions = [], []
-            for i, a in enumerate(offspring):
-                if random.random() < self.hparams.p_mutate:
-                    futures.append(mutate_flip_bits.remote(a.value))
-            for i, a in zip(positions, ray.get(futures)):
-                print(a)
-                offspring[i] = Member(a)  # why does this step slow things down so much?
-
-        # offspring = R.apply_mate_and_mutate(
-        #     population=offspring,
-        #     mate_fn=lambda a, b: R.mate_crossover_1d,
-        #     mutate_fn=lambda a: ray.put(R.mutate_flip_bits(ray.get(a), p=0.05)),
-        #     p_mate=self.hparams.p_mate,
-        #     p_mutate=self.hparams.p_mutate,
-        # )
-        # HACK
-        # 0.13915061950683594
-        # offspring = [Member(ray.put(m.value), m.fitness_unsafe) for m in offspring]
-        # done
+        offspring = list(population)
+        np.random.shuffle(offspring)
+        offspring = random_map_pairs(mate, offspring, p=self.hparams.p_mate, map_fn=ray_map)
+        offspring = random_map(mutate, offspring, p=self.hparams.p_mutate,   map_fn=ray_map)
+        # Done!
         return offspring
 
     def select_population(self, population: Population, offspring: Population) -> Population:
-        # Same as deap.algorithms.eaSimple
-        return offspring
+        return R.select_tournament(population + offspring, len(population), k=3)  # TODO: tools.selNSGA2
 
     def evaluate_values(self, values: List[Any]) -> List[float]:
-        # 0.1165781021118164
         return ray_map(np.mean, values)
-
-
-# @ray.remote
-# def evaluate(value):
-#     return value.std()
-    # return [ray.get(value_id).std() for value_id in values]
-
-# @ray.remote
-# class RayWorker(object):
-#
-#     def gen_starting_population(self) -> Population:
-#         pass
-#
-#     def generate_offspring(self, population: Population) -> Population:
-#         pass
-#
-#     def select_population(self, population: Population, offspring: Population) -> Population:
-#         pass
-#
-#     def evaluate_values(self, values: List[Any]) -> List[float]:
-#         pass
-
-
-# class RayManager():
-#
-#     def __init__(self, num_workers: int = None):
-#         if num_workers is None:
-#             num_workers = ray.available_resources().get('CPU', 1)
 
 
 # ========================================================================= #
@@ -166,7 +147,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
 
-    ray.init(num_cpus=128)
+    ray.init(num_cpus=64)
 
     with Timer('ruck:trainer'):
         module = OneMaxModule(population_size=512, member_size=1_000_000)
