@@ -28,26 +28,11 @@ from typing import List
 from typing import Protocol
 from typing import Sequence
 
-import numpy as np
 import ray
 from ray.remote_function import RemoteFunction
 
-
-# ========================================================================= #
-# lists                                                                     #
-# ========================================================================= #
-
-
-def chained(list_of_lists: List[List[Any]]) -> List[Any]:
-    return [item for items in list_of_lists for item in items]
-
-
-def splits(items: List[Any], num_chunks: int = None, keep_empty: bool = False) -> List[List[Any]]:
-    if num_chunks is None:
-        num_chunks = _cpus()
-    if not keep_empty:
-        num_chunks = min(num_chunks, len(items))
-    return [list(items) for items in np.array_split(items, num_chunks)]
+from ruck.util._iter import chained
+from ruck.util._iter import splits
 
 
 # ========================================================================= #

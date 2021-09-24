@@ -22,6 +22,7 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
+from functools import wraps
 from typing import Any
 from typing import Callable
 
@@ -29,17 +30,33 @@ import numpy as np
 
 
 # ========================================================================= #
-# Mutate                                                                    #
+# Mutate Helper                                                             #
 # ========================================================================= #
 
 
 MutateFnHint = Callable[[Any], Any]
 
 
+def check_mutation(fn):
+    @wraps(fn)
+    def wrapper(value, *args, **kwargs):
+        mutated = fn(value, *args, **kwargs)
+        assert mutated is not value, f'Mutate function: {fn} should return a new value'
+        return mutated
+    return wrapper
+
+
+# ========================================================================= #
+# Mutate                                                                    #
+# ========================================================================= #
+
+
+@check_mutation
 def mutate_flip_bits(a: np.ndarray, p: float = 0.05):
     return a ^ (np.random.random(a.shape) < p)
 
 
+@check_mutation
 def mutate_flip_bit_types(a: np.ndarray, p: float = 0.05):
     if np.random.random() < 0.5:
         # flip set bits

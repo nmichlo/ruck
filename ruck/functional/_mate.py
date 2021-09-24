@@ -22,6 +22,7 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
+from functools import wraps
 from typing import Any
 from typing import Callable
 from typing import Tuple
@@ -29,13 +30,29 @@ import numpy as np
 
 
 # ========================================================================= #
-# Mate                                                                      #
+# Mate Helper                                                               #
 # ========================================================================= #
 
 
 MateFnHint = Callable[[Any, Any], Tuple[Any, Any]]
 
 
+def check_mating(fn):
+    @wraps(fn)
+    def wrapper(value_a, value_b, *args, **kwargs):
+        mated_a, mated_b = fn(value_a, value_b, *args, **kwargs)
+        assert mated_a not in (value_a, value_b), f'Mate function: {fn} should return new values'
+        assert mated_b not in (value_a, value_b), f'Mate function: {fn} should return new values'
+        return mated_a, mated_b
+    return wrapper
+
+
+# ========================================================================= #
+# Mate                                                                      #
+# ========================================================================= #
+
+
+@check_mating
 def mate_crossover_1d(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     assert a.ndim == 1
     assert a.shape == b.shape

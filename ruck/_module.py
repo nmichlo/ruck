@@ -56,7 +56,7 @@ class EaModule(Generic[T], HParamsMixin):
 
     # REQUIRED
 
-    def gen_starting_population(self) -> Population[T]:
+    def gen_starting_values(self) -> List[T]:
         raise NotImplementedError
 
     def generate_offspring(self, population: Population[T]) -> Population[T]:

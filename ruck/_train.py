@@ -67,7 +67,7 @@ def _evaluate_unevaluated(module: EaModule[T], members: Population[T]) -> int:
     # get unevaluated members
     unevaluated = [m for m in members if not m.is_evaluated]
     # get fitness values
-    fitnesses = module.evaluate_values([m.value for m in unevaluated])
+    fitnesses = list(module.evaluate_values([m.value for m in unevaluated]))
     # save fitness values
     assert len(unevaluated) == len(fitnesses)
     for m, f in zip(unevaluated, fitnesses):
@@ -83,7 +83,7 @@ def _evaluate_unevaluated(module: EaModule[T], members: Population[T]) -> int:
 
 def yield_population_steps(module: EaModule[T]) -> Iterator[Tuple[int, Population[T], Population[T], int]]:
     # 1. create population
-    population = module.gen_starting_population()
+    population = [Member(m) for m in module.gen_starting_values()]
     population_size = len(population)
     population = _check_population(population, required_size=population_size)
 

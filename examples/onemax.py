@@ -41,7 +41,6 @@ from ruck.util import Timer
 
 class OneMaxModule(EaModule):
 
-
     def __init__(
         self,
         population_size: int = 300,
@@ -52,16 +51,14 @@ class OneMaxModule(EaModule):
         super().__init__()
         self.save_hyperparameters()
 
-    def evaluate_values(self, values: List[Any]) -> List[float]:
+    def evaluate_values(self, values: List[Any]):
         # this is a large reason why the deap version is slow,
         # it does not make use of numpy operations
-        return [value.sum() for value in values]
+        return map(np.sum, values)
 
-    def gen_starting_population(self) -> Population:
-        return [
-            Member(np.random.random(self.hparams.member_size) < 0.5)
-            for _ in range(self.hparams.population_size)
-        ]
+    def gen_starting_values(self) -> Population:
+        for _ in range(self.hparams.population_size):
+            yield np.random.random(self.hparams.member_size) < 0.5
 
     def generate_offspring(self, population: Population) -> Population:
         # Same as deap.algorithms.eaSimple which uses deap.algorithms.varAnd

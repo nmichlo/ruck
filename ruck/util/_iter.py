@@ -22,25 +22,31 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
+import itertools
+import random
+from typing import Any
+from typing import Callable
+from typing import List
+from typing import Sequence
+from typing import Tuple
+from typing import TypeVar
 
 import numpy as np
 
 
 # ========================================================================= #
-# From https://github.com/nmichlo/disent
+# lists                                                                     #
 # ========================================================================= #
 
 
-def random_choice_prng(a, size=None, replace=True, p=None):
-    # create seeded pseudo random number generator
-    # - built in np.random.choice cannot handle large values: https://github.com/numpy/numpy/issues/5299#issuecomment-497915672
-    # - PCG64 is the default: https://numpy.org/doc/stable/reference/random/bit_generators/index.html
-    # - PCG64 has good statistical properties and is fast: https://numpy.org/doc/stable/reference/random/performance.html
-    g = np.random.Generator(np.random.PCG64(seed=np.random.randint(0, 2**32)))
-    # sample indices
-    choices = g.choice(a, size=size, replace=replace, p=p)
-    # done!
-    return choices
+def chained(list_of_lists: List[List[Any]]) -> List[Any]:
+    return [item for items in list_of_lists for item in items]
+
+
+def splits(items: List[Any], num_chunks: int, keep_empty: bool = False) -> List[List[Any]]:
+    if not keep_empty:
+        num_chunks = min(num_chunks, len(items))
+    return [list(items) for items in np.array_split(items, num_chunks)]
 
 
 # ========================================================================= #

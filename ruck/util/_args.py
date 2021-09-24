@@ -27,6 +27,11 @@ from typing import Optional
 from typing import Sequence
 
 
+# ========================================================================= #
+# Hyper Parameters                                                          #
+# ========================================================================= #
+
+
 class HParamsMixin(object):
 
     __hparams = None
@@ -65,3 +70,8 @@ class HParamsMixin(object):
     @property
     def hparams(self):
         return self.__hparams
+
+
+# ========================================================================= #
+# END                                                                       #
+# ========================================================================= #

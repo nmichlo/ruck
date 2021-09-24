@@ -27,4 +27,4 @@ from ruck.functional._mutate import *
 from ruck.functional._select import *
 
 # helper -- should be replaced
-from ruck.functional._helper import *
+from ruck.functional._algorithm import *
