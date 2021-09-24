@@ -21,3 +21,11 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
+
+
+from ruck.util._timer import Timer
+
+from ruck.util._ray import splits
+from ruck.util._ray import chained
+from ruck.util._ray import ray_map
+from ruck.util._ray import ray_map_chunks

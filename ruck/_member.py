@@ -22,8 +22,10 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-from typing import Any
+from typing import Generic
 from typing import List
+from typing import Optional
+from typing import TypeVar
 
 import numpy as np
 
@@ -41,29 +43,43 @@ class MemberAlreadyEvaluatedError(Exception):
     pass
 
 
-class Member(object):
+T = TypeVar('T')
 
-    def __init__(self, value: Any):
+
+class Member(Generic[T]):
+
+    def __init__(self, value: T, fitness: float = None):
         self._value = value
         self._fitness = None
+        # set fitness
+        if fitness is not None:
+            self.fitness = fitness
 
     @property
-    def value(self) -> Any:
+    def value(self) -> T:
         return self._value
 
     @property
-    def fitness(self):
+    def fitness_unsafe(self) -> Optional[float]:
+        return self._fitness
+
+    @property
+    def fitness(self) -> float:
         if not self.is_evaluated:
             raise MemberIsNotEvaluatedError('The member has not been evaluated, the fitness has not yet been set.')
         return self._fitness
 
     @fitness.setter
-    def fitness(self, value):
+    def fitness(self, fitness: float):
         if self.is_evaluated:
             raise MemberAlreadyEvaluatedError('The member has already been evaluated, the fitness can only ever be set once. Create a new member instead!')
-        if np.isnan(value):
+        if np.isnan(fitness):
             raise ValueError('fitness values cannot be NaN, this is an error!')
-        self._fitness = value
+        self._fitness = float(fitness)
+
+    def set_fitness(self, fitness: float) -> 'Member[T]':
+        self.fitness = fitness
+        return self
 
     @property
     def is_evaluated(self) -> bool:
@@ -84,7 +100,7 @@ class Member(object):
 # ========================================================================= #
 
 
-Population  = List[Member]
+Population = List[Member[T]]
 
 
 # ========================================================================= #

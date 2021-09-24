@@ -22,9 +22,9 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-import contextlib
 import logging
-import time
+from typing import Any
+from typing import List
 
 import numpy as np
 
@@ -33,7 +33,13 @@ from ruck import EaModule
 from ruck import Population
 
 
+# ========================================================================= #
+# Module                                                                    #
+# ========================================================================= #
+
+
 class OneMaxModule(EaModule):
+
 
     def __init__(
         self,
@@ -45,16 +51,16 @@ class OneMaxModule(EaModule):
         super().__init__()
         self.save_hyperparameters()
 
+    def evaluate_values(self, values: List[Any]) -> List[float]:
+        # this is a large reason why the deap version is slow,
+        # it does not make use of numpy operations
+        return [value.sum() for value in values]
+
     def gen_starting_population(self) -> Population:
         return [
             Member(np.random.random(self.hparams.member_size) < 0.5)
             for _ in range(self.hparams.population_size)
         ]
-
-    def evaluate_value(self, value: np.ndarray) -> float:
-        # this is a large reason why the deap version is slow,
-        # it does not make use of numpy operations
-        return value.sum()
 
     def generate_offspring(self, population: Population) -> Population:
         # Same as deap.algorithms.eaSimple which uses deap.algorithms.varAnd
@@ -73,6 +79,11 @@ class OneMaxModule(EaModule):
         return offspring
 
 
+# ========================================================================= #
+# Main                                                                      #
+# ========================================================================= #
+
+
 if __name__ == '__main__':
     # about 18x faster than deap's numpy onemax example (0.145s vs 2.6s)
     # -- https://github.com/DEAP/deap/blob/master/examples/ga/onemax_numpy.py
@@ -87,7 +98,12 @@ if __name__ == '__main__':
 
     with Timer('ruck:trainer'):
         module = OneMaxModule(population_size=300, member_size=100)
-        population, logbook, halloffame = Trainer(generations=40, progress=False).fit(module)
+        pop, logbook, halloffame = Trainer(generations=40, progress=False).fit(module)
 
     print('initial stats:', logbook[0])
     print('final stats:', logbook[-1])
+
+
+# ========================================================================= #
+# END                                                                       #
+# ========================================================================= #

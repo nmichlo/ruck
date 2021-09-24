@@ -24,6 +24,10 @@
 
 import itertools
 import logging
+from typing import Generic
+from typing import Iterator
+from typing import Tuple
+from typing import TypeVar
 
 import numpy as np
 from tqdm import tqdm
@@ -39,44 +43,19 @@ from ruck._module import EaModule
 log = logging.getLogger(__name__)
 
 
+T = TypeVar('T')
+
+
 # ========================================================================= #
 # Utils Trainer                                                             #
 # ========================================================================= #
 
 
-def _check_population(population: Population, required_size: int) -> Population:
+def _check_population(population: Population[T], required_size: int) -> Population[T]:
     assert len(population) > 0, 'population must not be empty'
     assert len(population) == required_size, 'population size is invalid'
     assert all(isinstance(member, Member) for member in population), 'items in population are not members'
     return population
-
-
-# def _get_batch_size(total: int) -> int:
-#     resources = ray.available_resources()
-#     if 'CPU' not in resources:
-#         return total
-#     else:
-#         cpus = int(resources['CPU'])
-#         batch_size = (total + cpus - 1) // cpus
-#         return batch_size
-
-
-# ========================================================================= #
-# Evaluate Helper                                                           #
-# ========================================================================= #
-
-
-# def _eval_sequential(population: PopulationHint, eval_fn):
-#     return [eval_fn(member.value) for member in population]
-
-
-# _evaluate_ray = ray.remote(_eval_sequential)
-
-
-# def _eval_multiproc(population: PopulationHint, eval_fn):
-#     member_batches = iter_chunks(population, chunk_size=_get_batch_size(len(population)))
-#     score_batches = ray.get([_evaluate_ray.remote(members, eval_fn=eval_fn) for members in member_batches])
-#     return [score for score_batch in score_batches for score in score_batch]
 
 
 # ========================================================================= #
@@ -84,7 +63,7 @@ def _check_population(population: Population, required_size: int) -> Population:
 # ========================================================================= #
 
 
-def _evaluate_unevaluated(module: EaModule, members: Population) -> int:
+def _evaluate_unevaluated(module: EaModule[T], members: Population[T]) -> int:
     # get unevaluated members
     unevaluated = [m for m in members if not m.is_evaluated]
     # get fitness values
@@ -102,7 +81,7 @@ def _evaluate_unevaluated(module: EaModule, members: Population) -> int:
 # ========================================================================= #
 
 
-def yield_population_steps(module: EaModule):
+def yield_population_steps(module: EaModule[T]) -> Iterator[Tuple[int, Population[T], Population[T], int]]:
     # 1. create population
     population = module.gen_starting_population()
     population_size = len(population)
@@ -133,7 +112,7 @@ def yield_population_steps(module: EaModule):
 # ========================================================================= #
 
 
-class Trainer(object):
+class Trainer(Generic[T]):
 
     def __init__(
         self,
@@ -148,7 +127,7 @@ class Trainer(object):
         self._offspring_generator = offspring_generator
         assert self._history_n_best > 0
 
-    def fit(self, module: EaModule):
+    def fit(self, module: EaModule[T]) -> Tuple[Population[T], Logbook[T], HallOfFame[T]]:
         assert isinstance(module, EaModule)
         # history trackers
         logbook, halloffame = self._create_default_trackers(module)
@@ -164,7 +143,7 @@ class Trainer(object):
         # done
         return population, logbook, halloffame
 
-    def _create_default_trackers(self, module: EaModule):
+    def _create_default_trackers(self, module: EaModule[T]) -> Tuple[Logbook[T], HallOfFame[T]]:
         halloffame = HallOfFame(
             n_best=self._history_n_best,
             maximize=True,

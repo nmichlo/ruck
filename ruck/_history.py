@@ -27,10 +27,15 @@ import heapq
 from typing import Any
 from typing import Callable
 from typing import Dict
+from typing import Generic
 from typing import List
-
+from typing import TypeVar
 
 from ruck._member import Population
+
+
+T = TypeVar('T')
+V = TypeVar('V')
 
 
 # ========================================================================= #
@@ -38,8 +43,8 @@ from ruck._member import Population
 # ========================================================================= #
 
 
-ValueFnHint     = Callable[[Any], Any]
-StatFnHint      = Callable[[Any], Any]
+ValueFnHint     = Callable[[T], V]
+StatFnHint      = Callable[[V], Any]
 
 
 # ========================================================================= #
@@ -47,9 +52,9 @@ StatFnHint      = Callable[[Any], Any]
 # ========================================================================= #
 
 
-class StatsGroup(object):
+class StatsGroup(Generic[T, V]):
 
-    def __init__(self, value_fn: ValueFnHint = None, **stats_fns: StatFnHint):
+    def __init__(self, value_fn: ValueFnHint[T, V] = None, **stats_fns: StatFnHint[V]):
         assert all(str.isidentifier(key) for key in stats_fns.keys())
         assert stats_fns
         self._value_fn = value_fn
@@ -59,7 +64,7 @@ class StatsGroup(object):
     def keys(self) -> List[str]:
         return list(self._stats_fns.keys())
 
-    def compute(self, value: Any) -> Dict[str, Any]:
+    def compute(self, value: T) -> Dict[str, Any]:
         if self._value_fn is not None:
             value = self._value_fn(value)
         return {
@@ -68,9 +73,9 @@ class StatsGroup(object):
         }
 
 
-class Logbook(object):
+class Logbook(Generic[T]):
 
-    def __init__(self, *external_keys: str, **stats_groups: StatsGroup):
+    def __init__(self, *external_keys: str, **stats_groups: StatsGroup[T, Any]):
         self._all_ordered_keys = []
         self._external_keys = []
         self._stats_groups = {}
@@ -100,7 +105,7 @@ class Logbook(object):
         self._all_ordered_keys.append(name)
         return self
 
-    def register_stats_group(self, name: str, stats_group: StatsGroup):
+    def register_stats_group(self, name: str, stats_group: StatsGroup[T, Any]):
         self._assert_key_available(self._assert_key_available(name))
         assert isinstance(stats_group, StatsGroup)
         assert stats_group not in self._stats_groups.values()
@@ -109,7 +114,7 @@ class Logbook(object):
         self._all_ordered_keys.extend(f'{name}:{key}' for key in stats_group.keys)
         return self
 
-    def record(self, population: 'Population', **external_values):
+    def record(self, population: Population[T], **external_values):
         # extra stats
         if set(external_values.keys()) != set(self._external_keys):
             raise KeyError(f'required external_values: {sorted(self._external_keys)}, got: {sorted(external_values.keys())}')
@@ -153,7 +158,7 @@ class HallOfFameItem:
     member: Any = dataclasses.field(compare=False)
 
 
-class HallOfFame(object):
+class HallOfFame(Generic[T]):
 
     def __init__(self, n_best: int = 5, maximize: bool = True):
         self._maximize = maximize
@@ -162,7 +167,7 @@ class HallOfFame(object):
         self._heap = []  # element 0 is always the smallest
         self._scores = {}
 
-    def update(self, population: Population):
+    def update(self, population: Population[T]):
         best = sorted(population, key=lambda m: m.fitness, reverse=True)[:self._n_best]
         # add the best
         for member in best:
@@ -181,15 +186,15 @@ class HallOfFame(object):
                 del self._scores[removed.fitness]
 
     @property
-    def members(self) -> Population:
+    def members(self) -> Population[T]:
         return [m.member for m in sorted(self._heap, reverse=True)]
 
     @property
-    def values(self) -> List[Any]:
+    def values(self) -> List[T]:
         return [m.value for m in self.members]
 
     @property
-    def scores(self) -> List[Any]:
+    def scores(self) -> List[float]:
         return [m.fitness for m in self.members]
 
 
