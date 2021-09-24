@@ -41,8 +41,10 @@ def check_mating(fn):
     @wraps(fn)
     def wrapper(value_a, value_b, *args, **kwargs):
         mated_a, mated_b = fn(value_a, value_b, *args, **kwargs)
-        assert mated_a not in (value_a, value_b), f'Mate function: {fn} should return new values'
-        assert mated_b not in (value_a, value_b), f'Mate function: {fn} should return new values'
+        assert mated_a is not value_a, f'Mate function: {fn} should return new values'
+        assert mated_a is not value_b, f'Mate function: {fn} should return new values'
+        assert mated_b is not value_a, f'Mate function: {fn} should return new values'
+        assert mated_b is not value_b, f'Mate function: {fn} should return new values'
         return mated_a, mated_b
     return wrapper
 

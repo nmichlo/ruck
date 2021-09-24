@@ -39,8 +39,8 @@ SelectFnHint = Callable[[Population, int], Population]
 
 def check_selection(fn):
     @wraps(fn)
-    def wrapper(population: Population, num: int):
-        selected = fn(population, num)
+    def wrapper(population: Population, num: int, *args, **kwargs):
+        selected = fn(population, num, *args, **kwargs)
         assert selected is not population, f'Select function: {fn} should return a new list'
         assert len(selected) == num, f'Select function: {fn} returned an incorrect number of elements, got: {len(selected)}, should be: {num}'
         return selected
