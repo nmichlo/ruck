@@ -31,6 +31,7 @@ import numpy as np
 from ruck import *
 from ruck import EaModule
 from ruck import Population
+from ruck.util import Timer
 
 
 # ========================================================================= #
@@ -89,12 +90,6 @@ if __name__ == '__main__':
     # -- https://github.com/DEAP/deap/blob/master/examples/ga/onemax_numpy.py
 
     logging.basicConfig(level=logging.INFO)
-
-    @contextlib.contextmanager
-    def Timer(name: str):
-        t = time.time()
-        yield
-        print(name, time.time() - t, 'seconds')
 
     with Timer('ruck:trainer'):
         module = OneMaxModule(population_size=300, member_size=100)
