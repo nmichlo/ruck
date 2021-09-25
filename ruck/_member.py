@@ -95,7 +95,7 @@ class Member(Generic[T]):
         value_str = _RE_WHITESPACE.sub(' ', repr(self.value))
         # cut short
         if len(value_str) > 33:
-            value_str = f'{value_str[:14]} ... {value_str[-14:]}'
+            value_str = f'{value_str[:14].rstrip(" ")} ... {value_str[-14:].lstrip(" ")}'
         # get fitness
         fitness_str = f', {self.fitness}' if self.is_evaluated else ''
         # combine

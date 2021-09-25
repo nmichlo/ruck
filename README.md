@@ -77,7 +77,7 @@ import numpy as np
 from ruck import *
 
 
-class OneMaxModule(EaModule):
+class OneMaxMinimalModule(EaModule):
     """
     Minimal onemax example
     - The goal is to flip all the bits of a boolean array to True
@@ -106,7 +106,7 @@ class OneMaxModule(EaModule):
 
 if __name__ == '__main__':
     # create and train the population
-    module = OneMaxModule()
+    module = OneMaxMinimalModule()
     pop, logbook, halloffame = Trainer(generations=100, progress=True).fit(module)
 
     print('initial stats:', logbook[0])
