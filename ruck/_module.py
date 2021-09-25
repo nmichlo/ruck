@@ -51,7 +51,13 @@ class EaModule(Generic[T], HParamsMixin):
     def get_stats_groups(self) -> Dict[str, StatsGroup[T, Any]]:
         # default stats groups
         return {
-            'fit': StatsGroup(lambda pop: [m.fitness for m in pop], min=np.min, max=np.max, mean=np.mean)
+            'fit': StatsGroup(
+                lambda pop: [m.fitness for m in pop],
+                min =lambda fitnesses: np.min(fitnesses,  axis=0).tolist(),
+                max =lambda fitnesses: np.max(fitnesses,  axis=0).tolist(),
+                mean=lambda fitnesses: np.mean(fitnesses, axis=0, dtype='float64').tolist(),
+                std =lambda fitnesses: np.std(fitnesses,  axis=0, dtype='float64').tolist(),
+            )
         }
 
     def get_progress_stats(self) -> Sequence[str]:

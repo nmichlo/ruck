@@ -21,18 +21,21 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
+
 import re
+import warnings
 from typing import Generic
 from typing import List
 from typing import Optional
+from typing import Tuple
 from typing import TypeVar
-
-import numpy as np
+from typing import Union
 
 
 # ========================================================================= #
 # Members                                                                   #
 # ========================================================================= #
+import numpy as np
 
 
 class MemberIsNotEvaluatedError(Exception):
@@ -44,6 +47,7 @@ class MemberAlreadyEvaluatedError(Exception):
 
 
 T = TypeVar('T')
+Fitness = Union[float, Tuple[float, ...]]
 
 
 _RE_WHITESPACE = re.compile(r'\s\s+')
@@ -51,7 +55,7 @@ _RE_WHITESPACE = re.compile(r'\s\s+')
 
 class Member(Generic[T]):
 
-    def __init__(self, value: T, fitness: float = None):
+    def __init__(self, value: T, fitness: Fitness = None):
         self._value = value
         self._fitness = None
         # set fitness
@@ -63,26 +67,36 @@ class Member(Generic[T]):
         return self._value
 
     @property
-    def fitness_unsafe(self) -> Optional[float]:
+    def fitness_unsafe(self) -> Optional[Fitness]:
         return self._fitness
 
+    @fitness_unsafe.setter
+    def fitness_unsafe(self, fitness: Fitness):
+        if self.is_evaluated:
+            raise MemberAlreadyEvaluatedError('The member has already been evaluated, the fitness can only ever be set once. Create a new member instead!')
+        if fitness is None:
+            raise ValueError('cannot set the fitness value to None')
+        # set the value
+        self._fitness = fitness
+
     @property
-    def fitness(self) -> float:
+    def fitness(self) -> Fitness:
         if not self.is_evaluated:
             raise MemberIsNotEvaluatedError('The member has not been evaluated, the fitness has not yet been set.')
         return self._fitness
 
     @fitness.setter
-    def fitness(self, fitness: float):
-        if self.is_evaluated:
-            raise MemberAlreadyEvaluatedError('The member has already been evaluated, the fitness can only ever be set once. Create a new member instead!')
-        if np.isnan(fitness):
-            raise ValueError('fitness values cannot be NaN, this is an error!')
-        self._fitness = float(fitness)
-
-    def set_fitness(self, fitness: float) -> 'Member[T]':
-        self.fitness = fitness
-        return self
+    def fitness(self, fitness: Fitness):
+        # check values
+        if isinstance(fitness, (float, int)):
+            pass
+        elif isinstance(fitness, tuple):
+            if not all(isinstance(f, (float, int)) for f in fitness):
+                warnings.warn('multivariate fitness value does not consist of floats, this is probably an error!')
+        else:
+            warnings.warn(f'fitness value is not a float or tuple of floats, this is probably an error! Got type: {type(fitness)}')
+        # set the value
+        self.fitness_unsafe = fitness
 
     @property
     def is_evaluated(self) -> bool:
