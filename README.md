@@ -121,9 +121,9 @@ The following example makes use of these additional features so that components 
 easily be swapped out.
 
 The three basic evolutionary algorithms provided are based around [deap's](http://www.github.com/deap/deap)
-default algorithms from `deap.algorithms`: `eaSimple`, `eaMuPlusLambda`, and `eaMuCommaLambda`. These
-algorithms can be accessed from `ruck.functional` which has the alias `R`: `R.factory_simple_ea`,
-`R.factory_mu_plus_lambda` and `R.factory_mu_comma_lambda`.
+default algorithms from `deap.algorithms`. These basic evolutionary algorithms can be created from
+`ruck.functional.make_ea`. We provide the alias `ruck.R` for `ruck.functional`. `R.make_ea` supports
+the following modes: `simple`, `mu_plus_lambda` and `mu_comma_lambda`.
 
 
 <details><summary><b>Code Example</b></summary>
@@ -145,15 +145,19 @@ class OneMaxModule(EaModule):
     def __init__(
         self,
         population_size: int = 300,
+        offspring_num: int = None,  # offspring_num (lambda) is automatically set to population_size (mu) when `None`
         member_size: int = 100,
         p_mate: float = 0.5,
         p_mutate: float = 0.5,
+        ea_mode: str = 'simple'
     ):
         # save the arguments to the .hparams property. values are taken from the
         # local scope so modifications can be captured if the call to this is delayed.
         self.save_hyperparameters()
         # implement the required functions for `EaModule`
-        self.generate_offspring, self.select_population = R.factory_simple_ea(
+        self.generate_offspring, self.select_population = R.make_ea(
+            mode=self.hparams.ea_mode,
+            offspring_num=self.hparams.offspring_num,
             mate_fn=R.mate_crossover_1d,
             mutate_fn=functools.partial(R.mutate_flip_bit_groups, p=0.05),
             select_fn=functools.partial(R.select_tournament, k=3),
@@ -201,12 +205,11 @@ arrays using an efficient zero-copy procedure. This is advantageous over somethi
 expensive pickle operations to pass data around.
 
 2. The second step is to swap out the aforementioned `map` function in the previous example to a
-multiprocessing equivalent. We provide the `ray_map` function that can be used instead, which
-automatically wraps functions using `ray.remote`, and provides additional benefits when using `ObjectRef`s.
+multiprocessing equivalent. We use `ray.remote` along with `ray.get`, and provide the `ray_map` function
+that has the same API as python map, but accepts `ray.remote(my_fn).remote` values instead.
 
 3. Finally we need to update our `mate` and `mutate` functions to handle `ObjectRef`s, we provide a convenient
-wrapper to automatically call `ray.get` on function arguments and `ray.out` on function results so that
-you can re-use your existing code.
+wrapper to automatically call `ray.put` on function results so that you can re-use your existing code.
 
 <details><summary><b>Code Example</b></summary>
 <p>
@@ -232,28 +235,39 @@ class OneMaxRayModule(EaModule):
     def __init__(
         self,
         population_size: int = 300,
+        offspring_num: int = None,  # offspring_num (lambda) is automatically set to population_size (mu) when `None`
         member_size: int = 100,
         p_mate: float = 0.5,
         p_mutate: float = 0.5,
+        ea_mode: str = 'mu_plus_lambda'
     ):
         self.save_hyperparameters()
         # implement the required functions for `EaModule`
-        # - decorate the functions with `ray_refs_wrapper` which
-        #   automatically `ray.get` arguments and `ray.put` returned results
-        self.generate_offspring, self.select_population = R.factory_simple_ea(
-            mate_fn=ray_refs_wrapper(R.mate_crossover_1d, iter_results=True),
-            mutate_fn=ray_refs_wrapper(partial(R.mutate_flip_bit_groups, p=0.05)),
-            select_fn=partial(R.select_tournament, k=3),  # OK to compute locally, because we only look at the fitness
+        self.generate_offspring, self.select_population = R.make_ea(
+            mode=self.hparams.ea_mode,
+            offspring_num=self.hparams.offspring_num,
+            # decorate the functions with `ray_remote_put` which automatically
+            # `ray.get` arguments that are `ObjectRef`s and `ray.put`s returned results
+            mate_fn=ray_remote_puts(R.mate_crossover_1d).remote,
+            mutate_fn=ray_remote_put(R.mutate_flip_bit_groups).remote,
+            # efficient to compute locally
+            select_fn=partial(R.select_tournament, k=3),
             p_mate=self.hparams.p_mate,
             p_mutate=self.hparams.p_mutate,
-            map_fn=ray_map,  # specify the map function to enable multiprocessing
+            # ENABLE multiprocessing
+            map_fn=ray_map,
         )
+        # eval function, we need to cache it on the class to prevent
+        # multiple calls to ray.remote. We use ray.remote instead of
+        # ray_remote_put like above because we want the returned values
+        # not object refs to those values.
+        self._ray_eval = ray.remote(np.mean).remote
 
     def evaluate_values(self, values):
         # values is a list of `ray.ObjectRef`s not `np.ndarray`s
         # ray_map automatically converts np.sum to a `ray.remote` function which
         # automatically handles `ray.get`ing of `ray.ObjectRef`s passed as arguments
-        return ray_map(np.sum, values)
+        return ray_map(self._ray_eval, values)
 
     def gen_starting_values(self):
         # generate objects and place in ray's object store
@@ -269,7 +283,7 @@ if __name__ == '__main__':
 
     # create and train the population
     module = OneMaxRayModule(population_size=128, member_size=1_000_000)
-    pop, logbook, halloffame = Trainer(generations=100, progress=True).fit(module)
+    pop, logbook, halloffame = Trainer(generations=200, progress=True).fit(module)
 
     print('initial stats:', logbook[0])
     print('final stats:', logbook[-1])
