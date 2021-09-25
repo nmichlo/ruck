@@ -22,36 +22,22 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
+"""
+OneMax parallel example using ray's object store.
 
-import functools
-import logging
-from typing import List
+8 bytes * 1_000_000 * 128 members ~= 128 MB of memory to store this population.
+This is quite a bit of processing that needs to happen! But using ray
+and its object store we can do this efficiently!
+"""
 
+from functools import partial
 import numpy as np
-import psutil
 import ray
-from ray import ObjectRef
-
-from ruck import EaModule
-from ruck import Population
-from ruck import R
-from ruck import Trainer
-from ruck.util import ray_mapped
-from ruck.util import Timer
-from ruck.util._ray import ray_refs_handler
+from ruck import *
+from ruck.util import *
 
 
-# ========================================================================= #
-# Module                                                                    #
-# ========================================================================= #
-
-
-class OneMaxRayModule(EaModule[ObjectRef]):
-
-    # trick pycharm overrides error checking against `EaModule`
-    # it doesn't like that we set the values in the constructor!
-    generate_offspring = None
-    select_population = None
+class OneMaxRayModule(EaModule):
 
     def __init__(
         self,
@@ -60,52 +46,41 @@ class OneMaxRayModule(EaModule[ObjectRef]):
         p_mate: float = 0.5,
         p_mutate: float = 0.5,
     ):
-        # save the arguments to the .hparams property. values are taken from the
-        # local scope so modifications can be captured if the call to this is delayed.
         self.save_hyperparameters()
         # implement the required functions for `EaModule`
+        # - decorate the functions with `ray_refs_wrapper` which
+        #   automatically `ray.get` arguments and `ray.put` returned results
         self.generate_offspring, self.select_population = R.factory_simple_ea(
-            mate_fn=ray_refs_handler(R.mate_crossover_1d, iter_results=True),
-            mutate_fn=ray_refs_handler(functools.partial(R.mutate_flip_bits, p=0.05)),
-            select_fn=functools.partial(R.select_tournament, k=3),  # tools.selNSGA2
+            mate_fn=ray_refs_wrapper(R.mate_crossover_1d, iter_results=True),
+            mutate_fn=ray_refs_wrapper(partial(R.mutate_flip_bit_groups, p=0.05)),
+            select_fn=partial(R.select_tournament, k=3),  # OK to compute locally, because we only look at the fitness
             p_mate=self.hparams.p_mate,
             p_mutate=self.hparams.p_mutate,
-            map_fn=ray_mapped,
+            map_fn=ray_map,  # specify the map function to enable multiprocessing
         )
 
-    def evaluate_values(self, values: List[ObjectRef]) -> List[float]:
-        # this is a large reason why the deap version is slow,
-        # it does not make use of numpy operations
-        return ray_mapped(np.sum, values)
+    def evaluate_values(self, values):
+        # values is a list of `ray.ObjectRef`s not `np.ndarray`s
+        # ray_map automatically converts np.sum to a `ray.remote` function which
+        # automatically handles `ray.get`ing of `ray.ObjectRef`s passed as arguments
+        return ray_map(np.sum, values)
 
-    def gen_starting_values(self) -> Population[ObjectRef]:
+    def gen_starting_values(self):
+        # generate objects and place in ray's object store
         return [
             ray.put(np.random.random(self.hparams.member_size) < 0.5)
             for i in range(self.hparams.population_size)
         ]
 
 
-# ========================================================================= #
-# Main                                                                      #
-# ========================================================================= #
-
-
 if __name__ == '__main__':
-    # about 15x faster than deap's numpy onemax example (0.17s vs 2.6s)
-    # -- https://github.com/DEAP/deap/blob/master/examples/ga/onemax_numpy.py
+    # initialize ray to use the specified system resources
+    ray.init()
 
-    logging.basicConfig(level=logging.INFO)
-
-    ray.init(num_cpus=min(psutil.cpu_count(), 16))
-
-    with Timer('ruck:trainer'):
-        module = OneMaxRayModule(population_size=512, member_size=1_000_000)
-        pop, logbook, halloffame = Trainer(generations=100, progress=False).fit(module)
+    # create and train the population
+    module = OneMaxRayModule(population_size=128, member_size=1_000_000)
+    pop, logbook, halloffame = Trainer(generations=100, progress=True).fit(module)
 
     print('initial stats:', logbook[0])
     print('final stats:', logbook[-1])
-
-
-# ========================================================================= #
-# END                                                                       #
-# ========================================================================= #
+    print('best member:', halloffame.members[0])
