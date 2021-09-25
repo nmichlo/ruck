@@ -37,15 +37,19 @@ class OneMaxModule(EaModule):
     def __init__(
         self,
         population_size: int = 300,
+        offspring_num: int = None,  # offspring_num (lambda) is automatically set to population_size (mu) when `None`
         member_size: int = 100,
         p_mate: float = 0.5,
         p_mutate: float = 0.5,
+        ea_mode: str = 'simple'
     ):
         # save the arguments to the .hparams property. values are taken from the
         # local scope so modifications can be captured if the call to this is delayed.
         self.save_hyperparameters()
         # implement the required functions for `EaModule`
-        self.generate_offspring, self.select_population = R.factory_simple_ea(
+        self.generate_offspring, self.select_population = R.make_ea(
+            mode=self.hparams.ea_mode,
+            offspring_num=self.hparams.offspring_num,
             mate_fn=R.mate_crossover_1d,
             mutate_fn=functools.partial(R.mutate_flip_bit_groups, p=0.05),
             select_fn=functools.partial(R.select_tournament, k=3),

@@ -82,50 +82,5 @@ def splits(items: Sequence[Any], num_chunks: int, keep_empty: bool = False) -> L
 
 
 # ========================================================================= #
-# random -- used for ruck.functional._algorithm                             #
-# ========================================================================= #
-
-
-def replaced_random_taken_pairs(fn: Callable[[T, T], Tuple[T, T]], items: Iterable[T], p: float, map_fn=map) -> List[T]:
-    # shallow copy because we want to update elements in this list
-    # - we need to take care to handle the special case where the length
-    #   of items is odd, thus we cannot just call random_map with modified
-    #   args using pairs and chaining the output
-    items = list(items)
-    # select random items
-    idxs, vals = [], []
-    for i, pair in enumerate(zip(items[0::2], items[1::2])):
-        if random.random() < p:
-            vals.append(pair)
-            idxs.append(i)
-    # map selected values
-    vals = map_fn(lambda pair: fn(pair[0], pair[1]), vals)
-    # update values
-    for i, (v0, v1) in zip(idxs, vals):
-        items[i*2+0] = v0
-        items[i*2+1] = v1
-    # done!
-    return items
-
-
-def replaced_random_taken_elems(fn: Callable[[T], T], items: Iterable[T], p: float, map_fn=map) -> List[T]:
-    # shallow copy because we want to update elements in this list
-    items = list(items)
-    # select random items
-    idxs, vals = [], []
-    for i, v in enumerate(items):
-        if random.random() < p:
-            vals.append(v)
-            idxs.append(i)
-    # map selected values
-    vals = map_fn(fn, vals)
-    # update values
-    for i, v in zip(idxs, vals):
-        items[i] = v
-    # done!
-    return items
-
-
-# ========================================================================= #
 # END                                                                       #
 # ========================================================================= #

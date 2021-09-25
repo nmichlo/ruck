@@ -24,11 +24,12 @@
 
 import functools
 from typing import Any
+from typing import Callable
 from typing import List
 from typing import Sequence
 
 import ray
-from ray.remote_function import RemoteFunction
+from ray import ObjectRef
 
 
 # ========================================================================= #
@@ -36,26 +37,13 @@ from ray.remote_function import RemoteFunction
 # ========================================================================= #
 
 
-@functools.lru_cache(maxsize=16)
-def _to_remote_ray_fn(fn):
-    if not isinstance(fn, RemoteFunction):
-        fn = ray.remote(fn)
-    return fn
-
-
-def ray_map(ray_fn, items: Sequence[Any]) -> List[Any]:
+def ray_map(remote_fn: Callable[[Any], ObjectRef], items: Sequence[Any]) -> List[Any]:
     """
-    A more convenient alternative to `ray.util.multiprocessing.Pool`s `map` function!
-    Using a similar API to python `map`, except returning a list of mapped values
-    instead of an iterable.
-
-    The advantage of this functions it that we automatically wrap passed functions to
-    ray.remote functions, also enabling automatic getting of ObjectRef values.
+    A simple ray alternative to `map`, input function should be
+    a remote function that returns an object reference / future value
     """
-    # make sure the function is a remote function
-    ray_fn = _to_remote_ray_fn(ray_fn)
     # pass each item to ray and wait for the result
-    return ray.get(list(map(ray_fn.remote, items)))
+    return ray.get(list(map(remote_fn, items)))
 
 
 # ========================================================================= #
@@ -63,42 +51,42 @@ def ray_map(ray_fn, items: Sequence[Any]) -> List[Any]:
 # ========================================================================= #
 
 
-def ray_refs_wrapper(fn = None, get: bool = True, put: bool = True, iter_results: bool = False):
+def ray_remote_put(fn = None, iter_results: bool = False, **ray_remote_kwargs):
     """
-    Wrap a function so that we automatically ray.get
-    all the arguments and ray.put the result.
-
-    iter_results=True instead treats the result as an
-    iterable and applies ray.put to each result item
+    Wrap a function using ray.remote but automatically put the
+    results in the object store instead of returning the values!
 
     for example:
+    >>> @ray.remote
     >>> def mate(a, b):
-    >>>    a, b = ray.get(a), ray.get(b)
     >>>    a, b = R.mate_crossover_1d(a, b)
     >>>    return ray.put(a), ray.put(b)
 
     becomes:
-    >>> @ray_refs_wrapper(iter_results=True)
+    >>> @ray_remote_put(iter_results=True)
     >>> def mate(a, b):
     >>>     return R.mate_crossover_1d(a, b)
+
+    or even:
+    >>> mate = ray_remote_put(R.mate_crossover_1d, iter_results=True)
     """
 
     def wrapper(fn):
+        # handle wrapping
         @functools.wraps(fn)
-        def inner(*args):
-            # get values from object store
-            if get:
-                args = (ray.get(v) for v in args)
-            # call function
-            result = fn(*args)
+        def inner(*args, **kwargs):
+            result = fn(*args, **kwargs)
             # store values in the object store
-            if put:
-                if iter_results:
-                    result = tuple(ray.put(v) for v in result)
-                else:
-                    result = ray.put(result)
-            # done!
-            return result
+            if iter_results:
+                return tuple(ray.put(v) for v in result)
+            else:
+                return ray.put(result)
+        # ray remote
+        if ray_remote_kwargs:
+            inner = ray.remote(**ray_remote_kwargs)(inner)
+        else:
+            inner = ray.remote(inner)
+        # done!
         return inner
 
     # handle correct case
@@ -106,6 +94,15 @@ def ray_refs_wrapper(fn = None, get: bool = True, put: bool = True, iter_results
         return wrapper
     else:
         return wrapper(fn)
+
+
+def ray_remote_puts(fn = None, **ray_remote_kwargs):
+    """
+    Like `ray_remote_put` but iterates over results.
+
+    - This is the same as calling `ray_remote_put` with `iter_results=True`
+    """
+    return ray_remote_put(fn=fn, iter_results=True, **ray_remote_kwargs)
 
 
 # ========================================================================= #
