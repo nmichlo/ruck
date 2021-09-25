@@ -61,10 +61,29 @@ def check_mating(fn: F) -> F:
 def mate_crossover_1d(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     assert a.ndim == 1
     assert a.shape == b.shape
+    # get slice
     i, j = np.random.randint(0, len(a), size=2)
     i, j = min(i, j), max(i, j)
+    # generate new arrays
     new_a = np.concatenate([a[:i], b[i:j], a[j:]], axis=0)
     new_b = np.concatenate([b[:i], a[i:j], b[j:]], axis=0)
+    return new_a, new_b
+
+
+@check_mating
+def mate_crossover_nd(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    assert a.ndim >= 1
+    assert a.shape == b.shape
+    # get hypercube
+    I, J = np.random.randint(0, a.shape), np.random.randint(0, b.shape)
+    I, J = np.minimum(I, J), np.maximum(I, J)
+    # generate slices
+    slices = tuple(slice(i, j, None) for i, j in zip(I, J))
+    # copy arrays and set values
+    new_a = np.copy(a)
+    new_b = np.copy(b)
+    new_a[slices] = b[slices]
+    new_b[slices] = a[slices]
     return new_a, new_b
 
 

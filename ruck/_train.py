@@ -55,6 +55,8 @@ def _check_population(population: Population[T], required_size: int) -> Populati
     assert len(population) > 0, 'population must not be empty'
     assert len(population) == required_size, 'population size is invalid'
     assert all(isinstance(member, Member) for member in population), 'items in population are not members'
+    types = {type(m.value) for m in population}
+    assert len(types) == 1, f'Population consists of members with different types: {list(types)}'
     return population
 
 
