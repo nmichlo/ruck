@@ -24,6 +24,7 @@
 
 
 from ruck.util._ray import ray_map
-from ruck.util._ray import ray_refs_wrapper
+from ruck.util._ray import ray_remote_put
+from ruck.util._ray import ray_remote_puts
 
 from ruck.util._timer import Timer

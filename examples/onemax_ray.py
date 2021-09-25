@@ -42,28 +42,39 @@ class OneMaxRayModule(EaModule):
     def __init__(
         self,
         population_size: int = 300,
+        offspring_num: int = None,  # offspring_num (lambda) is automatically set to population_size (mu) when `None`
         member_size: int = 100,
         p_mate: float = 0.5,
         p_mutate: float = 0.5,
+        ea_mode: str = 'mu_plus_lambda'
     ):
         self.save_hyperparameters()
         # implement the required functions for `EaModule`
-        # - decorate the functions with `ray_refs_wrapper` which
-        #   automatically `ray.get` arguments and `ray.put` returned results
-        self.generate_offspring, self.select_population = R.factory_simple_ea(
-            mate_fn=ray_refs_wrapper(R.mate_crossover_1d, iter_results=True),
-            mutate_fn=ray_refs_wrapper(partial(R.mutate_flip_bit_groups, p=0.05)),
-            select_fn=partial(R.select_tournament, k=3),  # OK to compute locally, because we only look at the fitness
+        self.generate_offspring, self.select_population = R.make_ea(
+            mode=self.hparams.ea_mode,
+            offspring_num=self.hparams.offspring_num,
+            # decorate the functions with `ray_remote_put` which automatically
+            # `ray.get` arguments that are `ObjectRef`s and `ray.put`s returned results
+            mate_fn=ray_remote_puts(R.mate_crossover_1d).remote,
+            mutate_fn=ray_remote_put(R.mutate_flip_bit_groups).remote,
+            # efficient to compute locally
+            select_fn=partial(R.select_tournament, k=3),
             p_mate=self.hparams.p_mate,
             p_mutate=self.hparams.p_mutate,
-            map_fn=ray_map,  # specify the map function to enable multiprocessing
+            # ENABLE multiprocessing
+            map_fn=ray_map,
         )
+        # eval function, we need to cache it on the class to prevent
+        # multiple calls to ray.remote. We use ray.remote instead of
+        # ray_remote_put like above because we want the returned values
+        # not object refs to those values.
+        self._ray_eval = ray.remote(np.mean).remote
 
     def evaluate_values(self, values):
         # values is a list of `ray.ObjectRef`s not `np.ndarray`s
         # ray_map automatically converts np.sum to a `ray.remote` function which
         # automatically handles `ray.get`ing of `ray.ObjectRef`s passed as arguments
-        return ray_map(np.sum, values)
+        return ray_map(self._ray_eval, values)
 
     def gen_starting_values(self):
         # generate objects and place in ray's object store
@@ -79,7 +90,7 @@ if __name__ == '__main__':
 
     # create and train the population
     module = OneMaxRayModule(population_size=128, member_size=1_000_000)
-    pop, logbook, halloffame = Trainer(generations=100, progress=True).fit(module)
+    pop, logbook, halloffame = Trainer(generations=200, progress=True).fit(module)
 
     print('initial stats:', logbook[0])
     print('final stats:', logbook[-1])
