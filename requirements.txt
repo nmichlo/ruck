@@ -1,5 +1,5 @@
 pip>=21.0
-numpy>=1.21.0
-tqdm>=4.60.0
+numpy>=1.19
+tqdm>=4
 # ray should be an optional requirement
 ray>=1.6.0
