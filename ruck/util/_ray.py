@@ -43,7 +43,7 @@ def _to_remote_ray_fn(fn):
     return fn
 
 
-def ray_mapped(ray_fn, items: Sequence[Any]) -> List[Any]:
+def ray_map(ray_fn, items: Sequence[Any]) -> List[Any]:
     """
     A more convenient alternative to `ray.util.multiprocessing.Pool`s `map` function!
     Using a similar API to python `map`, except returning a list of mapped values
@@ -63,7 +63,7 @@ def ray_mapped(ray_fn, items: Sequence[Any]) -> List[Any]:
 # ========================================================================= #
 
 
-def ray_refs_handler(fn = None, get: bool = True, put: bool = True, iter_results: bool = False):
+def ray_refs_wrapper(fn = None, get: bool = True, put: bool = True, iter_results: bool = False):
     """
     Wrap a function so that we automatically ray.get
     all the arguments and ray.put the result.
@@ -78,7 +78,7 @@ def ray_refs_handler(fn = None, get: bool = True, put: bool = True, iter_results
     >>>    return ray.put(a), ray.put(b)
 
     becomes:
-    >>> @ray_refs_handler(iter_results=True)
+    >>> @ray_refs_wrapper(iter_results=True)
     >>> def mate(a, b):
     >>>     return R.mate_crossover_1d(a, b)
     """

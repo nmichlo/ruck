@@ -132,7 +132,7 @@ class Trainer(Generic[T]):
         # history trackers
         logbook, halloffame = self._create_default_trackers(module)
         # progress bar and training loop
-        with tqdm(total=self._generations+1, desc='generation', disable=not self._progress, ncols=120) as p:
+        with tqdm(total=self._generations, desc='generation', disable=not self._progress, ncols=120) as p:
             for gen, population, offspring, evals in itertools.islice(self._offspring_generator(module), self._generations):
                 # update statistics with new population
                 halloffame.update(offspring)
@@ -141,7 +141,7 @@ class Trainer(Generic[T]):
                 p.update()
                 p.set_postfix({k: stats[k] for k in module.get_progress_stats()})
         # done
-        return population, logbook, halloffame
+        return population, logbook, halloffame.freeze()
 
     def _create_default_trackers(self, module: EaModule[T]) -> Tuple[Logbook[T], HallOfFame[T]]:
         halloffame = HallOfFame(

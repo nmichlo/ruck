@@ -35,11 +35,12 @@ from ruck._member import Population
 # ========================================================================= #
 
 
+F = TypeVar('F')
 T = TypeVar('T')
 SelectFnHint = Callable[[Population[T], int], Population[T]]
 
 
-def check_selection(fn):
+def check_selection(fn: F) -> F:
     @wraps(fn)
     def wrapper(population: Population[T], num: int, *args, **kwargs) -> Population[T]:
         selected = fn(population, num, *args, **kwargs)

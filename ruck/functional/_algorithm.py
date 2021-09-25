@@ -22,10 +22,7 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-from typing import Callable
-from typing import List
 from typing import Optional
-from typing import Sequence
 from typing import Tuple
 from typing import TypeVar
 
@@ -218,7 +215,7 @@ def factory_simple_ea(
     return generate, select
 
 
-def factory_mu_and_lambda(
+def factory_mu_plus_lambda(
     mate_fn: MateFnHint[T],
     mutate_fn: MutateFnHint[T],
     select_fn: SelectFnHint[T],

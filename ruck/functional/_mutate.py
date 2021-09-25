@@ -34,11 +34,12 @@ import numpy as np
 # ========================================================================= #
 
 
+F = TypeVar('F')
 T = TypeVar('T')
 MutateFnHint = Callable[[T], T]
 
 
-def check_mutation(fn):
+def check_mutation(fn: F) -> F:
     @wraps(fn)
     def wrapper(value: T, *args, **kwargs):
         mutated = fn(value, *args, **kwargs)
@@ -58,7 +59,7 @@ def mutate_flip_bits(a: np.ndarray, p: float = 0.05) -> np.ndarray:
 
 
 @check_mutation
-def mutate_flip_bit_types(a: np.ndarray, p: float = 0.05) -> np.ndarray:
+def mutate_flip_bit_groups(a: np.ndarray, p: float = 0.05) -> np.ndarray:
     if np.random.random() < 0.5:
         # flip set bits
         return a ^ ((np.random.random(a.shape) < p) & a)

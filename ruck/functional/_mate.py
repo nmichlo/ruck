@@ -35,11 +35,12 @@ import numpy as np
 # ========================================================================= #
 
 
+F = TypeVar('F')
 T = TypeVar('T')
 MateFnHint = Callable[[T, T], Tuple[T, T]]
 
 
-def check_mating(fn):
+def check_mating(fn: F) -> F:
     @wraps(fn)
     def wrapper(value_a: T, value_b: T, *args, **kwargs) -> Tuple[T, T]:
         mated_a, mated_b = fn(value_a, value_b, *args, **kwargs)
