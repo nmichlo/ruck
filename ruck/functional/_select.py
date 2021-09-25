@@ -25,6 +25,7 @@
 import random
 from functools import wraps
 from typing import Callable
+from typing import TypeVar
 
 from ruck._member import Population
 
@@ -34,12 +35,14 @@ from ruck._member import Population
 # ========================================================================= #
 
 
-SelectFnHint = Callable[[Population, int], Population]
+F = TypeVar('F')
+T = TypeVar('T')
+SelectFnHint = Callable[[Population[T], int], Population[T]]
 
 
-def check_selection(fn):
+def check_selection(fn: F) -> F:
     @wraps(fn)
-    def wrapper(population: Population, num: int, *args, **kwargs):
+    def wrapper(population: Population[T], num: int, *args, **kwargs) -> Population[T]:
         selected = fn(population, num, *args, **kwargs)
         assert selected is not population, f'Select function: {fn} should return a new list'
         assert len(selected) == num, f'Select function: {fn} returned an incorrect number of elements, got: {len(selected)}, should be: {num}'
@@ -53,22 +56,22 @@ def check_selection(fn):
 
 
 @check_selection
-def select_best(population: Population, num: int) -> Population:
+def select_best(population: Population[T], num: int) -> Population[T]:
     return sorted(population, key=lambda m: m.fitness, reverse=True)[:num]
 
 
 @check_selection
-def select_worst(population: Population, num: int) -> Population:
+def select_worst(population: Population[T], num: int) -> Population[T]:
     return sorted(population, key=lambda m: m.fitness, reverse=False)[:num]
 
 
 @check_selection
-def select_random(population: Population, num: int) -> Population:
+def select_random(population: Population[T], num: int) -> Population[T]:
     return random.sample(population, k=num)
 
 
 @check_selection
-def select_tournament(population: Population, num: int, k: int = 3) -> Population:
+def select_tournament(population: Population[T], num: int, k: int = 3) -> Population[T]:
     key = lambda m: m.fitness
     return [
         max(random.sample(population, k=k), key=key)

@@ -23,8 +23,8 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 from functools import wraps
-from typing import Any
 from typing import Callable
+from typing import TypeVar
 
 import numpy as np
 
@@ -34,12 +34,14 @@ import numpy as np
 # ========================================================================= #
 
 
-MutateFnHint = Callable[[Any], Any]
+F = TypeVar('F')
+T = TypeVar('T')
+MutateFnHint = Callable[[T], T]
 
 
-def check_mutation(fn):
+def check_mutation(fn: F) -> F:
     @wraps(fn)
-    def wrapper(value, *args, **kwargs):
+    def wrapper(value: T, *args, **kwargs):
         mutated = fn(value, *args, **kwargs)
         assert mutated is not value, f'Mutate function: {fn} should return a new value'
         return mutated
@@ -52,12 +54,12 @@ def check_mutation(fn):
 
 
 @check_mutation
-def mutate_flip_bits(a: np.ndarray, p: float = 0.05):
+def mutate_flip_bits(a: np.ndarray, p: float = 0.05) -> np.ndarray:
     return a ^ (np.random.random(a.shape) < p)
 
 
 @check_mutation
-def mutate_flip_bit_types(a: np.ndarray, p: float = 0.05):
+def mutate_flip_bit_groups(a: np.ndarray, p: float = 0.05) -> np.ndarray:
     if np.random.random() < 0.5:
         # flip set bits
         return a ^ ((np.random.random(a.shape) < p) & a)

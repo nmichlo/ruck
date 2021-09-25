@@ -21,7 +21,7 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
-
+import re
 from typing import Generic
 from typing import List
 from typing import Optional
@@ -44,6 +44,9 @@ class MemberAlreadyEvaluatedError(Exception):
 
 
 T = TypeVar('T')
+
+
+_RE_WHITESPACE = re.compile(r'\s\s+')
 
 
 class Member(Generic[T]):
@@ -89,10 +92,14 @@ class Member(Generic[T]):
         return repr(self)
 
     def __repr__(self):
-        if self.is_evaluated:
-            return f'{self.__class__.__name__}<{self.fitness}>'
-        else:
-            return f'{self.__class__.__name__}<>'
+        value_str = _RE_WHITESPACE.sub(' ', repr(self.value))
+        # cut short
+        if len(value_str) > 33:
+            value_str = f'{value_str[:14]} ... {value_str[-14:]}'
+        # get fitness
+        fitness_str = f', {self.fitness}' if self.is_evaluated else ''
+        # combine
+        return f'{self.__class__.__name__}({value_str}{fitness_str})'
 
 
 # ========================================================================= #

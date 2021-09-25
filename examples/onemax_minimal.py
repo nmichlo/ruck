@@ -1,5 +1,3 @@
-#  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
-#  MIT License
 #
 #  Copyright (c) 2021 Nathan Juraj Michlo
 #
@@ -22,51 +20,43 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-"""
-OneMax serial example based on:
-https://github.com/DEAP/deap/blob/master/examples/ga/onemax_numpy.py
-"""
 
-import functools
+import random
 import numpy as np
 from ruck import *
 
 
 class OneMaxModule(EaModule):
+    """
+    Minimal onemax example
+    - The goal is to flip all the bits of a boolean array to True
+    - Offspring are generated as bit flipped versions of the previous population
+    - Selection tournament is performed between the previous population and the offspring
+    """
 
-    def __init__(
-        self,
-        population_size: int = 300,
-        member_size: int = 100,
-        p_mate: float = 0.5,
-        p_mutate: float = 0.5,
-    ):
-        # save the arguments to the .hparams property. values are taken from the
-        # local scope so modifications can be captured if the call to this is delayed.
-        self.save_hyperparameters()
-        # implement the required functions for `EaModule`
-        self.generate_offspring, self.select_population = R.factory_simple_ea(
-            mate_fn=R.mate_crossover_1d,
-            mutate_fn=functools.partial(R.mutate_flip_bit_groups, p=0.05),
-            select_fn=functools.partial(R.select_tournament, k=3),
-            p_mate=self.hparams.p_mate,
-            p_mutate=self.hparams.p_mutate,
-        )
-
+    # evaluate unevaluated members according to their values
     def evaluate_values(self, values):
-        return map(np.sum, values)
+        return [v.sum() for v in values]
 
-    def gen_starting_values(self) -> Population:
-        return [
-            np.random.random(self.hparams.member_size) < 0.5
-            for i in range(self.hparams.population_size)
-        ]
+    # generate 300 random members of size 100 with 50% bits flipped
+    def gen_starting_values(self):
+        return [np.random.random(100) < 0.5 for _ in range(300)]
+
+    # randomly flip 5% of the bits of each each member in the population
+    # the previous population members should never be modified
+    def generate_offspring(self, population):
+        return [Member(m.value ^ (np.random.random(m.value.shape) < 0.05)) for m in population]
+
+    # selection tournament between population and offspring
+    def select_population(self, population, offspring):
+        combined = population + offspring
+        return [max(random.sample(combined, k=3), key=lambda m: m.fitness) for _ in range(len(population))]
 
 
 if __name__ == '__main__':
     # create and train the population
-    module = OneMaxModule(population_size=300, member_size=100)
-    pop, logbook, halloffame = Trainer(generations=40, progress=True).fit(module)
+    module = OneMaxModule()
+    pop, logbook, halloffame = Trainer(generations=100, progress=True).fit(module)
 
     print('initial stats:', logbook[0])
     print('final stats:', logbook[-1])

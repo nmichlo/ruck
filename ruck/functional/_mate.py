@@ -23,9 +23,10 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 from functools import wraps
-from typing import Any
 from typing import Callable
 from typing import Tuple
+from typing import TypeVar
+
 import numpy as np
 
 
@@ -34,12 +35,14 @@ import numpy as np
 # ========================================================================= #
 
 
-MateFnHint = Callable[[Any, Any], Tuple[Any, Any]]
+F = TypeVar('F')
+T = TypeVar('T')
+MateFnHint = Callable[[T, T], Tuple[T, T]]
 
 
-def check_mating(fn):
+def check_mating(fn: F) -> F:
     @wraps(fn)
-    def wrapper(value_a, value_b, *args, **kwargs):
+    def wrapper(value_a: T, value_b: T, *args, **kwargs) -> Tuple[T, T]:
         mated_a, mated_b = fn(value_a, value_b, *args, **kwargs)
         assert mated_a is not value_a, f'Mate function: {fn} should return new values'
         assert mated_a is not value_b, f'Mate function: {fn} should return new values'

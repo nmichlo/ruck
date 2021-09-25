@@ -158,16 +158,33 @@ class HallOfFameItem:
     member: Any = dataclasses.field(compare=False)
 
 
+class HallOfFameFrozenError(Exception):
+    pass
+
+
+class HallOfFameNotFrozenError(Exception):
+    pass
+
+
 class HallOfFame(Generic[T]):
 
     def __init__(self, n_best: int = 5, maximize: bool = True):
         self._maximize = maximize
         assert maximize
         self._n_best = n_best
+        # update values
         self._heap = []  # element 0 is always the smallest
         self._scores = {}
+        # frozen values
+        self._frozen = False
+        self._frozen_members = None
+        self._frozen_values = None
+        self._frozen_scores = None
 
     def update(self, population: Population[T]):
+        if self.is_frozen:
+            raise HallOfFameFrozenError('The hall of fame has been frozen, no more members can be added!')
+        # get potential best in population
         best = sorted(population, key=lambda m: m.fitness, reverse=True)[:self._n_best]
         # add the best
         for member in best:
@@ -185,17 +202,42 @@ class HallOfFame(Generic[T]):
                 removed = heapq.heappushpop(self._heap, item)
                 del self._scores[removed.fitness]
 
+    def freeze(self) -> 'HallOfFame':
+        if self.is_frozen:
+            raise HallOfFameFrozenError('The hall of fame has already been frozen, cannot freeze again!')
+        # freeze
+        self._frozen = True
+        self._frozen_members = [m.member for m in sorted(self._heap, reverse=True)]  # 0 is best, -1 is worst
+        # reset values
+        self._scores = None
+        self._heap = None
+        return self
+
+    @property
+    def is_frozen(self) -> bool:
+        return self._frozen
+
     @property
     def members(self) -> Population[T]:
-        return [m.member for m in sorted(self._heap, reverse=True)]
+        return list(self._frozen_members)
 
-    @property
-    def values(self) -> List[T]:
-        return [m.value for m in self.members]
+    def __getitem__(self, idx: int):
+        if not self.is_frozen:
+            raise HallOfFameNotFrozenError('The hall of fame has not yet been frozen by a completed training run, cannot access members!')
+        assert isinstance(idx, int)
+        return self._frozen_members[idx]
 
-    @property
-    def scores(self) -> List[float]:
-        return [m.fitness for m in self.members]
+    def __len__(self):
+        if not self.is_frozen:
+            raise HallOfFameNotFrozenError('The hall of fame has not yet been frozen by a completed training run, cannot access length!')
+        return len(self._frozen_members)
+
+    def __iter__(self):
+        if not self.is_frozen:
+            raise HallOfFameNotFrozenError('The hall of fame has not yet been frozen by a completed training run, cannot access members!')
+        for i in range(len(self)):
+            yield self[i]
+
 
 
 # ========================================================================= #
