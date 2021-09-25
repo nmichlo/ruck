@@ -32,5 +32,9 @@ from ruck._module import EaModule
 from ruck._train import Trainer
 from ruck._train import yield_population_steps
 
+from ruck._history import HallOfFame
+from ruck._history import Logbook
+from ruck._history import StatsGroup
+
 # functional utils
 from ruck import functional as R
