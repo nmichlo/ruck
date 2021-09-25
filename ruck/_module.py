@@ -29,6 +29,8 @@ from typing import List
 from typing import Sequence
 from typing import TypeVar
 
+import numpy as np
+
 from ruck._history import StatsGroup
 from ruck._member import Population
 from ruck.util._args import HParamsMixin
@@ -47,12 +49,15 @@ class EaModule(Generic[T], HParamsMixin):
     # OVERRIDABLE DEFAULTS
 
     def get_stats_groups(self) -> Dict[str, StatsGroup[T, Any]]:
-        # additional stats to be recorded
-        return {}
+        # default stats groups
+        return {
+            'fit': StatsGroup(lambda pop: [m.fitness for m in pop], min=np.min, max=np.max, mean=np.mean)
+        }
 
     def get_progress_stats(self) -> Sequence[str]:
         # which stats are included in the progress bar
-        return ('evals', 'fit:max',)
+        # - values added by trainer
+        return ('evals', 'fit:max')
 
     # REQUIRED
 
@@ -62,10 +67,10 @@ class EaModule(Generic[T], HParamsMixin):
     def generate_offspring(self, population: Population[T]) -> Population[T]:
         raise NotImplementedError
 
-    def select_population(self, population: Population[T], offspring: Population[T]) -> Population[T]:
+    def evaluate_values(self, values: List[T]) -> List[float]:
         raise NotImplementedError
 
-    def evaluate_values(self, values: List[T]) -> List[float]:
+    def select_population(self, population: Population[T], offspring: Population[T]) -> Population[T]:
         raise NotImplementedError
 
 

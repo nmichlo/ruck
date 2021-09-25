@@ -65,8 +65,8 @@ be made to members, instead new members should be created with the modified valu
 easily implement efficient multi-threading, see below!
 
 The trainer automatically constructs `HallOfFame` and `LogBook` objects which keep track of your
-population and offspring. `EaModule` provides defaults for `get_stats_groups` that can be overridden
-if you wish to customize the tracked statistics.
+population and offspring. `EaModule` provides defaults for `get_stats_groups` and `get_progress_stats`
+that can be overridden if you wish to customize the tracked statistics and statistics displayed by tqdm.
 
 
 ### Minimal OneMax Example

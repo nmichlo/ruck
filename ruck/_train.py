@@ -130,7 +130,8 @@ class Trainer(Generic[T]):
     def fit(self, module: EaModule[T]) -> Tuple[Population[T], Logbook[T], HallOfFame[T]]:
         assert isinstance(module, EaModule)
         # history trackers
-        logbook, halloffame = self._create_default_trackers(module)
+        logbook = Logbook('gen', 'evals', **module.get_stats_groups())
+        halloffame = HallOfFame(n_best=self._history_n_best, maximize=True)
         # progress bar and training loop
         with tqdm(total=self._generations, desc='generation', disable=not self._progress, ncols=120) as p:
             for gen, population, offspring, evals in itertools.islice(self._offspring_generator(module), self._generations):
@@ -142,18 +143,6 @@ class Trainer(Generic[T]):
                 p.set_postfix({k: stats[k] for k in module.get_progress_stats()})
         # done
         return population, logbook, halloffame.freeze()
-
-    def _create_default_trackers(self, module: EaModule[T]) -> Tuple[Logbook[T], HallOfFame[T]]:
-        halloffame = HallOfFame(
-            n_best=self._history_n_best,
-            maximize=True,
-        )
-        logbook = Logbook(
-            'gen', 'evals',
-            fit=StatsGroup(lambda pop: [m.fitness for m in pop], min=np.min, max=np.max, mean=np.mean),
-            **module.get_stats_groups()
-        )
-        return logbook, halloffame
 
 
 # ========================================================================= #
