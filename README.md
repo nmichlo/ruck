@@ -23,7 +23,7 @@
 
 <p align="center">
     <p align="center">
-        Visit the <a href="https://ruck.dontpanic.sh/">docs</a> for more info, or browse the  <a href="https://github.com/nmichlo/ruck/releases">releases</a>.
+        Visit the <a href="https://github.com/nmichlo/ruck/tree/main/examples/">examples</a> to get started, or browse the  <a href="https://github.com/nmichlo/ruck/releases">releases</a>.
     </p>
     <p align="center">
         <a href="https://github.com/nmichlo/ruck/issues/new/choose">Contributions</a> are welcome!
