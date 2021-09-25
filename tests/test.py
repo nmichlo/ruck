@@ -23,13 +23,43 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 
+import random
+import numpy as np
+from ruck import Member
+from ruck.functional import apply_mate
+
+
 # ========================================================================= #
 # TESTS                                                                     #
 # ========================================================================= #
 
 
-def test_tests():
-    assert True
+def test_mate_keep_order():
+    random.seed(77)
+    np.random.seed(77)
+    # checks
+    offspring = apply_mate(
+        population=[Member(c) for c in 'abcde'],
+        mate_fn=lambda a, b: (a.upper(), b.upper()),
+        p=0.5,
+        keep_order=True,
+    )
+    # done
+    assert ''.join(m.value for m in offspring) == 'ABcde'
+
+
+def test_mate_random_order():
+    random.seed(77)
+    np.random.seed(77)
+    # checks
+    offspring = apply_mate(
+        population=[Member(c) for c in 'abcde'],
+        mate_fn=lambda a, b: (a.upper(), b.upper()),
+        p=0.5,
+        keep_order=False,
+    )
+    # done
+    assert ''.join(m.value for m in offspring) == 'cdBAe'
 
 
 # ========================================================================= #
