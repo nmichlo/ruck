@@ -22,53 +22,54 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-import setuptools
+from typing import Optional
+from typing import Tuple
+from ruck.functional import check_selection
 
 
-# ========================================================================= #
-# HELPER                                                                    #
-# ========================================================================= #
-
-
-with open("README.md", "r", encoding="utf-8") as file:
-    long_description = file.read()
-
-with open('requirements.txt', 'r') as f:
-    install_requires = (req[0] for req in map(lambda x: x.split('#'), f.readlines()))
-    install_requires = [req for req in map(str.strip, install_requires) if req]
-
+try:
+    import deap
+except ImportError as e:
+    import warnings
+    warnings.warn('failed to import deap, please install it: $ pip install deap')
+    raise e
 
 # ========================================================================= #
-# SETUP                                                                     #
+# deap helper                                                               #
 # ========================================================================= #
 
 
-setuptools.setup(
-    name="ruck",
-    author="Nathan Juraj Michlo",
-    author_email="NathanJMichlo@gmail.com",
-
-    version="0.2.2",
-    python_requires=">=3.6",
-    packages=setuptools.find_packages(),
-
-    install_requires=install_requires,
-
-    url="https://github.com/nmichlo/ruck",
-    description="Performant evolutionary algorithms for Python.",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-
-    classifiers=[
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Intended Audience :: Science/Research",
-    ],
-)
+@check_selection
+def select_nsga2(population, num_offspring: int, weights: Optional[Tuple[float, ...]] = None):
+    """
+    This is hacky... ruck doesn't yet have NSGA2
+    support, but we will add it in future!
+    """
+    # get a fitness value to perform checks
+    f = population[0].fitness
+    # check fitness
+    try:
+        for _ in f: break
+    except:
+        raise ValueError('fitness values do not have multiple values!')
+    # get weights
+    if weights is None:
+        weights = tuple(1.0 for _ in f)
+    # get deap
+    from deap import creator, tools, base
+    # initialize creator
+    creator.create('_SelIdxFitness', base.Fitness, weights=weights)
+    creator.create('_SelIdxIndividual', int, fitness=creator._SelIdxFitness)
+    # convert to deap population
+    idx_individuals = []
+    for i, m in enumerate(population):
+        ind = creator._SelIdxIndividual(i)
+        ind.fitness.values = m.fitness
+        idx_individuals.append(ind)
+    # run nsga2
+    chosen_idx = tools.selNSGA2(individuals=idx_individuals, k=num_offspring)
+    # return values
+    return [population[i] for i in chosen_idx]
 
 
 # ========================================================================= #
