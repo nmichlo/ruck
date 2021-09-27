@@ -225,9 +225,8 @@ and its object store we can do this efficiently!
 
 from functools import partial
 import numpy as np
-import ray
 from ruck import *
-from ruck.util import *
+from ruck.external.ray import *
 
 
 class OneMaxRayModule(EaModule):

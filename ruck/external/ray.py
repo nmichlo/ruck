@@ -28,16 +28,19 @@ from typing import Callable
 from typing import List
 from typing import Sequence
 
-import ray
-from ray import ObjectRef
-
+try:
+    import ray
+except ImportError as e:
+    import warnings
+    warnings.warn('failed to import ray, please install it: $ pip install ray')
+    raise e
 
 # ========================================================================= #
 # ray                                                                       #
 # ========================================================================= #
 
 
-def ray_map(remote_fn: Callable[[Any], ObjectRef], items: Sequence[Any]) -> List[Any]:
+def ray_map(remote_fn: Callable[[Any], ray.ObjectRef], items: Sequence[Any]) -> List[Any]:
     """
     A simple ray alternative to `map`, input function should be
     a remote function that returns an object reference / future value
