@@ -21,19 +21,17 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
-
-from itertools import chain
+from timeit import timeit
 from typing import Optional
 from typing import Sequence
 from typing import Tuple
-from typing import Union
 
-import front as front
 import numpy as np
 
 from ruck import Population
 from ruck.external._numba import optional_njit
 from ruck.functional import check_selection
+from ruck.util._array import arggroup
 from ruck.util._population import population_fitnesses
 
 
@@ -133,61 +131,23 @@ def select_nsga2_custom(population: 'Population', num: int, weights: Sequence[fl
 # ========================================================================= #
 
 
-def arggroup(
-    numbers: Union[Sequence, np.ndarray],
-    axis=0,
-    keep_order=True,
-    return_unique: bool = False,
-    return_index: bool = False,
-    return_counts: bool = False,
-):
-    """
-    Group all the elements of the array.
-    - The returned groups contain the indices of
-      the original position in the arrays.
-    """
-
-    # convert
-    if not isinstance(numbers, np.ndarray):
-        numbers = np.array(numbers)
-    # checks
-    if numbers.ndim == 0:
-        raise ValueError('input array must have at least one dimension')
-    if numbers.size == 0:
-        return []
-    # we need to obtain the sorted groups of
-    unique, index, inverse, counts = np.unique(numbers, return_index=True, return_inverse=True, return_counts=True, axis=axis)
-    # same as [ary[:idx[0]], ary[idx[0]:idx[1]], ..., ary[idx[-2]:idx[-1]], ary[idx[-1]:]]
-    groups = np.split(ary=np.argsort(inverse, axis=0), indices_or_sections=np.cumsum(counts)[:-1], axis=0)
-    # maintain original order
-    if keep_order:
-        add_order = index.argsort()  # the order that items were added in
-        groups = [groups[i] for i in add_order]
-    # return values
-    results = [groups]
-    if return_unique:  results.append(unique[add_order] if keep_order else unique)
-    if return_index:   results.append(index[add_order]  if keep_order else index)
-    if return_counts:  results.append(counts[add_order] if keep_order else counts)
-    # unpack
-    if len(results) == 1:
-        return results[0]
-    return results
-
-
 def argsort_non_dominated(fitnesses: np.array, at_least_n: int = None, first_front_only=False) -> list:
     if at_least_n is None:
         at_least_n = len(fitnesses)
-    elif at_least_n == 0:
-        return []
+    # checks
+    assert at_least_n >= 0
+    assert at_least_n <= len(fitnesses)
     # collect all the non-unique elements into groups
     groups, unique, counts = arggroup(fitnesses, keep_order=True, return_unique=True, return_counts=True, axis=0)
-    # sort into fronts
+    # sort the unique elements into fronts
     u_fronts_idxs = _argsort_non_dominated_unique(
         unique_values=unique,
         unique_counts=counts,
         at_least_n=at_least_n,
         pareto_front_only=first_front_only,
     )
+    # expand the groups back into fronts
+    # that can contain repeated values
     return [[g for i in front for g in groups[i]] for front in u_fronts_idxs]
 
 
@@ -206,7 +166,7 @@ def _argsort_non_dominated_unique(
     where :math:`M` is the number of objectives and :math:`N` the number of
     individuals.
     """
-    assert unique_values.ndim >= 1
+    assert unique_values.ndim == 2
     assert unique_counts.ndim == 1
     assert len(unique_values) == len(unique_counts)
 
@@ -314,30 +274,71 @@ def dominates(w_fitness, w_fitness_other):
 # ========================================================================= #
 
 
-def get_crowding_distances(fitnesses: Sequence[Tuple[float, ...]]):
+# this is usually faster without JIT for very large arrays,
+# but for small inputs the JIT is often better < 64
+#
+#   SHAPE: (N, F)     | JIT:                                             | NO-JIT:                                            #
+# ┏ shape=(0, 2)      | OLD: 0.000001s NEW: 0.000002s SPEEDUP: 0.368500  | OLD: 0.000000s NEW: 0.000002s SPEEDUP: 0.202025  ┓ #
+# ┗ shape=(0, 16)     | OLD: 0.000000s NEW: 0.000001s SPEEDUP: 0.266382  | OLD: 0.000000s NEW: 0.000001s SPEEDUP: 0.193062  ┛ #
+# ┏ shape=(1, 2)      | OLD: 0.000004s NEW: 0.000001s SPEEDUP: 3.007124  | OLD: 0.000004s NEW: 0.000007s SPEEDUP: 0.578199  ┓ #
+# ┗ shape=(1, 16)     | OLD: 0.000015s NEW: 0.000003s SPEEDUP: 5.763490  | OLD: 0.000015s NEW: 0.000036s SPEEDUP: 0.417297  ┛ #
+# ┏ shape=(8, 2)      | OLD: 0.000015s NEW: 0.000002s SPEEDUP: 6.663598  | OLD: 0.000015s NEW: 0.000017s SPEEDUP: 0.885061  ┓ #
+# ┗ shape=(8, 16)     | OLD: 0.000092s NEW: 0.000009s SPEEDUP: 10.708658 | OLD: 0.000091s NEW: 0.000103s SPEEDUP: 0.883329  ┛ #
+# ┏ shape=(64, 2)     | OLD: 0.000099s NEW: 0.000004s SPEEDUP: 23.352296 | OLD: 0.000094s NEW: 0.000018s SPEEDUP: 5.085974  ┓ #
+# ┗ shape=(64, 16)    | OLD: 0.000702s NEW: 0.000029s SPEEDUP: 24.185735 | OLD: 0.000670s NEW: 0.000121s SPEEDUP: 5.514704  ┛ #
+# ┏ shape=(256, 2)    | OLD: 0.000394s NEW: 0.000013s SPEEDUP: 29.474941 | OLD: 0.000385s NEW: 0.000029s SPEEDUP: 13.172985 ┓ #
+# ┗ shape=(256, 16)   | OLD: 0.002923s NEW: 0.000177s SPEEDUP: 16.466151 | OLD: 0.002780s NEW: 0.000252s SPEEDUP: 11.045761 ┛ #
+# ┏ shape=(1024, 2)   | OLD: 0.001671s NEW: 0.000103s SPEEDUP: 16.259937 | OLD: 0.001584s NEW: 0.000107s SPEEDUP: 14.738836 ┓ #
+# ┗ shape=(1024, 16)  | OLD: 0.012324s NEW: 0.000879s SPEEDUP: 14.016850 | OLD: 0.011636s NEW: 0.000838s SPEEDUP: 13.879243 ┛ #
+# ┏ shape=(16384, 2)  | OLD: 0.029240s NEW: 0.002433s SPEEDUP: 12.016264 | OLD: 0.028420s NEW: 0.002033s SPEEDUP: 13.977902 ┓ #
+# ┗ shape=(16384, 16) | OLD: 0.214716s NEW: 0.020512s SPEEDUP: 10.467601 | OLD: 0.212408s NEW: 0.016327s SPEEDUP: 13.009210 ┛ #
+
+@optional_njit()
+def get_crowding_distances(positions: np.ndarray):
     """
-    Assign a crowding distance to each individual's fitness. The
-    crowding distance can be retrieve via the :attr:`crowding_dist`
-    attribute of each individual's fitness.
+    Compute the crowding distance for each position in an array.
+    - These are usually a 2D array of fitness values
+
+    The general algorithm for the crowding distance is:
+    1. for each component of the fitness/position, add to the distance for each element:
+    2.     | sort all the entries according to this component
+    3.     | the endpoints of the sorted array are assigned infinite distance
+    4.     | add to the distance for the middle element looking at consecutive triples,
+           | the value added is the distance between its two neighbours over the normalisation
+           | value, which is a multiple of the (max - min) over all values
+
+    TODO: Is there not a better algorithm than this? The crowding
+          distance seems very dependant on alignment with axes?
     """
-    if len(fitnesses) == 0:
-        return []
-
-    distances = [0.0] * len(fitnesses)
-    crowd = [(f, i) for i, f in enumerate(fitnesses)]
-
-    nobj = len(fitnesses[0])
-
-    for i in range(nobj):
-        crowd.sort(key=lambda element: element[0][i])
-        distances[crowd[0][1]] = float("inf")
-        distances[crowd[-1][1]] = float("inf")
-        if crowd[-1][0][i] == crowd[0][0][i]:
+    # get shape
+    assert positions.ndim == 2
+    N, F = positions.shape
+    # exit early
+    if N == 0:
+        return np.zeros(0, dtype='float64')
+    # store for the values
+    distances = np.zeros(N, dtype='float64')
+    # 1. for each fitness component, update the distance for each member!
+    for crowd in positions.T:
+        # 2. sort in increasing order
+        crowd_idxs = np.argsort(crowd)
+        crowd = crowd[crowd_idxs]
+        # 3. update endpoint distances
+        distances[crowd_idxs[0]] = np.inf
+        distances[crowd_idxs[-1]] = np.inf
+        # get endpoints
+        m = crowd[0]
+        M = crowd[-1]
+        # skip if the endpoints are the same (values will be zero if this is the case)
+        # or if there are not enough elements to compute over consecutive triples
+        if (M == m) or (len(crowd) < 3):
             continue
-        norm = nobj * float(crowd[-1][0][i] - crowd[0][0][i])
-        for prev, cur, next in zip(crowd[:-2], crowd[1:-1], crowd[2:]):
-            distances[cur[1]] += (next[0][i] - prev[0][i]) / norm
-
+        # normalize the values between the maximum and minimum distances
+        norm = F * (M - m)
+        # 4. compute the distance as the difference between the previous
+        # and next values all over the normalize distance
+        distances[crowd_idxs[1:-1]] += (crowd[2:] - crowd[:-2]) / norm
+    # return the distances!
     return distances
 
 

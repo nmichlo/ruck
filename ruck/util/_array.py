@@ -23,7 +23,6 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 
-from typing import List
 from typing import Sequence
 from typing import Union
 
@@ -38,9 +37,9 @@ import numpy as np
 def arggroup(
     numbers: Union[Sequence, np.ndarray],
     axis=0,
+    keep_order=True,
     return_unique: bool = False,
     return_index: bool = False,
-    return_inverse: bool = False,
     return_counts: bool = False,
 ):
     """
@@ -48,24 +47,6 @@ def arggroup(
     - The returned groups contain the indices of
       the original position in the arrays.
     """
-
-    # INFO:
-    #     unique            - unique values (<= len)
-    #     index             - idx in input array to obtain unique array (<= len)
-    #     inverse           - idx in unique array to reconstruct the input array (== len)
-    #     inverse.argsort() - idx in input array to obtain sorted array (== len)
-    #     count             - number of unique values (<= len)
-    # NOTES:
-    #     unique[inverse]            == numbers
-    #     numbers[index]             == unique
-    #     numbers[index[inverse]]    == numbers
-    #     numbers[inverse.argsort()] == np.sort(numbers)
-    # EXAMPLE np.unique:
-    #     numbers = [8 0 14 2 10 4 0 6 2 6]
-    #     unique  = [0 2 4 6 8 10 14]
-    #     index   = [1 3 5 7 0 4 2]
-    #     inverse = [4 0 6 1 5 2 0 3 1 3]
-    #     counts  = [2 2 1 2 1 1 1]
 
     # convert
     if not isinstance(numbers, np.ndarray):
@@ -76,15 +57,18 @@ def arggroup(
     if numbers.size == 0:
         return []
     # we need to obtain the sorted groups of
-    unique, inverse, counts = np.unique(numbers, return_index=False, return_inverse=True,  return_counts=True, axis=axis)
+    unique, index, inverse, counts = np.unique(numbers, return_index=True, return_inverse=True, return_counts=True, axis=axis)
     # same as [ary[:idx[0]], ary[idx[0]:idx[1]], ..., ary[idx[-2]:idx[-1]], ary[idx[-1]:]]
     groups = np.split(ary=np.argsort(inverse, axis=0), indices_or_sections=np.cumsum(counts)[:-1], axis=0)
+    # maintain original order
+    if keep_order:
+        add_order = index.argsort()  # the order that items were added in
+        groups = [groups[i] for i in add_order]
     # return values
     results = [groups]
-    if return_unique:  groups.append(unique)
-    if return_index:   raise ValueError('returning the index is not yet supported')
-    if return_inverse: groups.append(inverse)
-    if return_counts:  groups.append(counts)
+    if return_unique:  results.append(unique[add_order] if keep_order else unique)
+    if return_index:   results.append(index[add_order]  if keep_order else index)
+    if return_counts:  results.append(counts[add_order] if keep_order else counts)
     # unpack
     if len(results) == 1:
         return results[0]
