@@ -104,26 +104,27 @@ def select_nsga2_custom(population: 'Population', num: int, weights: Sequence[fl
             TODO: this doesnt sound correct, surely you would include all elements not
                   in the first front when checking the crowding distances?
     """
-    # apply non-dominated sorting and get progressive fronts
-    fronts = argsort_non_dominated(population_fitnesses(population, weights=weights), at_least_n=num)
-
-    # chain fronts together
-    chosen = [i for front in fronts[:-1] for i in front]
-
+    # 1. apply non-dominated sorting to get the sequential non-dominated fronts
+    fitnesses = population_fitnesses(population, weights=weights)
+    fronts = argsort_non_dominated(fitnesses, at_least_n=num)
     # check if we need more elements
+    chosen = [i for front in fronts[:-1] for i in front]
     missing = num - len(chosen)
-    assert missing >= 0, 'This is a bug!'
-
-    # add missing elements according to crowding distance
+    assert missing >= 0
+    # 2. Add missing elements prioritising those with the largest crowding distances.
+    #    Using weighted vs. original fitness values does not affect the crowding distance!
+    #    NOTE: should this not operate over all elements? this feels weird over the last front?
     if missing > 0:
-        dists = get_crowding_distances([population[i].fitness for i in fronts[-1]])  # TODO: is this correct, should it not be the below?
-        idxs = np.argsort(-np.array(dists))  # negate instead of reverse with [::-1] to match sorted(..., reverse=True)
-        chosen.extend(fronts[-1][i] for i in idxs[:missing])
-
-    # checks
-    assert len(chosen) == num, 'This is a bug!'
+        assert len(fronts[-1]) >= missing
+        front_fitnesses = [population[i].fitness for i in fronts[-1]]  # TODO: `front_fitnesses = fitnesses[fronts[-1]]` should work, something is wrong with the `get_crowding_distances` function!
+        # compute distances
+        dists = get_crowding_distances(front_fitnesses)
+        idxs = np.argsort(-np.array(dists))
+        chosen.extend(fronts[-1][i] for i in idxs[:num - len(chosen)])
     # return the original members
+    assert len(chosen) == num
     return [population[i] for i in chosen]
+
 
 
 # ========================================================================= #
@@ -137,6 +138,9 @@ def argsort_non_dominated(fitnesses: np.array, at_least_n: int = None, first_fro
     # checks
     assert at_least_n >= 0
     assert at_least_n <= len(fitnesses)
+    # exit early
+    if at_least_n == 0:
+        return []
     # collect all the non-unique elements into groups
     groups, unique, counts = arggroup(fitnesses, keep_order=True, return_unique=True, return_counts=True, axis=0)
     # sort the unique elements into fronts
@@ -149,7 +153,6 @@ def argsort_non_dominated(fitnesses: np.array, at_least_n: int = None, first_fro
     # expand the groups back into fronts
     # that can contain repeated values
     return [[g for i in front for g in groups[i]] for front in u_fronts_idxs]
-
 
 
 @optional_njit()
@@ -293,8 +296,7 @@ def dominates(w_fitness, w_fitness_other):
 # ┏ shape=(16384, 2)  | OLD: 0.029240s NEW: 0.002433s SPEEDUP: 12.016264 | OLD: 0.028420s NEW: 0.002033s SPEEDUP: 13.977902 ┓ #
 # ┗ shape=(16384, 16) | OLD: 0.214716s NEW: 0.020512s SPEEDUP: 10.467601 | OLD: 0.212408s NEW: 0.016327s SPEEDUP: 13.009210 ┛ #
 
-@optional_njit()
-def get_crowding_distances(positions: np.ndarray):
+def get_crowding_distances(positions) -> np.ndarray:
     """
     Compute the crowding distance for each position in an array.
     - These are usually a 2D array of fitness values
@@ -310,6 +312,14 @@ def get_crowding_distances(positions: np.ndarray):
     TODO: Is there not a better algorithm than this? The crowding
           distance seems very dependant on alignment with axes?
     """
+    # make sure we have the right datatype
+    if not isinstance(positions, np.ndarray):
+        positions = np.array(positions, dtype='float64')
+    return _get_crowding_distances(positions)
+
+
+@optional_njit()
+def _get_crowding_distances(positions: np.ndarray) -> np.ndarray:
     # get shape
     assert positions.ndim == 2
     N, F = positions.shape
