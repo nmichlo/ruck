@@ -21,10 +21,24 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
-
+import timeit
+from collections import defaultdict
+from itertools import chain
+from pprint import pprint
+from typing import List
 from typing import Optional
+from typing import Sequence
 from typing import Tuple
+
+import numba
+import numpy as np
+from deap.tools import sortNondominated
+from deap.tools.emo import assignCrowdingDist
+
+from ruck import Member
+from ruck import Population
 from ruck.functional import check_selection
+from ruck.util.array import arggroup
 
 
 try:
@@ -40,7 +54,7 @@ except ImportError as e:
 
 
 @check_selection
-def select_nsga2(population, num_offspring: int, weights: Optional[Tuple[float, ...]] = None):
+def select_nsga2(population, num_offspring: int, weights: Optional[Sequence[float]] = None):
     """
     This is hacky... ruck doesn't yet have NSGA2
     support, but we will add it in future!
@@ -78,20 +92,56 @@ def select_nsga2(population, num_offspring: int, weights: Optional[Tuple[float, 
 # CUSTOM                                                                    #
 # ========================================================================= #
 
+def _get_fitnesses(population: Population, weights=None):
+    fitnesses = np.array([m.fitness for m in population])
+    # check dims
+    if fitnesses.ndim == 1:
+        fitnesses = fitnesses[:, None]
+    assert fitnesses.ndim == 2
+    # handle weights
+    if weights is not None:
+        weights = np.array(weights)
+        # check dims
+        if weights.ndim == 0:
+            weights = weights[None]
+        assert weights.ndim == 1
+        # multiply
+        fitnesses *= weights[None, :]
+    # done!
+    return fitnesses
 
-def select_nsga2_custom(population: 'Population', num: int, weights: np.ndarray):
-    pareto_fronts = sort_non_dominated(population, num, weights)
+
+def select_nsga2_custom(population: 'Population', num: int, weights: Sequence[float]):
+    w_fitnesses = _get_fitnesses(population, weights)
+    # apply non-dominated sorting & get groups of member indices
+    pareto_fronts = sort_non_dominated(w_fitnesses, num)
+    # choose all but the last group
     chosen = list(chain(*pareto_fronts[:-1]))
-    k = num - len(chosen)
-    if k > 0:
-        front = pareto_fronts[-1]
-        dists = get_crowding_distances(front)
-        idxs = np.argsort(-np.array(dists))
-        chosen.extend(front[i] for i in idxs[:k])
-    return chosen
+    # check if we need more elements
+    missing = num - len(chosen)
+    assert missing >= 0, 'This is a bug!'
+    # add missing elements
+    if missing > 0:
+        dists = get_crowding_distances([population[i].fitness for i in pareto_fronts[-1]])
+        idxs = np.argsort(-np.array(dists))  # negate instead of reverse with [::-1] to match sorted(..., reverse=True)
+        chosen.extend(pareto_fronts[-1][i] for i in idxs[:missing])
+    # return the original members
+    return [population[i] for i in chosen]
 
 
-def sort_non_dominated(population: Population, num: int, weights: np.ndarray, first_front_only=False) -> list:
+def sort_non_dominated(w_fitnesses: Sequence[Tuple[float, ...]], num: int, first_front_only=False) -> list:
+    if num == 0:
+        return []
+    # collect all the non-unique elements into groups
+    unique, inverse, counts = np.unique(w_fitnesses, return_inverse=True, return_counts=True, axis=0)
+    # sort everything
+    u_fronts_idxs = _sort_non_dominated_unique(unique_values=unique, unique_counts=counts, num=num, pareto_front_only=first_front_only)
+    # return indices
+    return u_fronts_idxs
+
+
+@numba.njit()
+def _sort_non_dominated_unique(unique_values: np.ndarray, unique_counts: np.ndarray, num: int, pareto_front_only=False) -> list:
     """
     Sort the first *k* *individuals* into different nondomination levels
     using the "Fast Nondominated Sorting Approach" proposed by Deb et al.,
@@ -99,68 +149,84 @@ def sort_non_dominated(population: Population, num: int, weights: np.ndarray, fi
     where :math:`M` is the number of objectives and :math:`N` the number of
     individuals.
     """
-    if num == 0:
-        return []
+    assert unique_values.ndim >= 1
+    assert unique_counts.ndim == 1
+    assert len(unique_values) == len(unique_counts)
 
-    map_fit_ind = defaultdict(list)
-    for member in population:
-        map_fit_ind[member.fitness].append(member)
-    fits = list(map_fit_ind.keys())
+    # get the number of items still to be
+    # selected so we can exit early
+    N = min(int(np.sum(unique_counts)), num)
+    U = len(unique_values)
 
-    current_front = []
-    next_front = []
-    dominating_fits = defaultdict(int)
-    dominated_fits = defaultdict(list)
+    num_selected = 0
+    prev_front = []
+    fronts_idxs = [prev_front]
 
-    # Rank first Pareto front
-    for i, fit_i in enumerate(fits):
-        for fit_j in fits[i+1:]:
-            if dominates(fit_i, fit_j, weights):
-                dominating_fits[fit_j] += 1
-                dominated_fits[fit_i].append(fit_j)
-            elif dominates(fit_j, fit_i, weights):
-                dominating_fits[fit_i] += 1
-                dominated_fits[fit_j].append(fit_i)
-        if dominating_fits[fit_i] == 0:
-            current_front.append(fit_i)
+    dominated_count = np.zeros(U, dtype='int')
+    dominated_matrix = np.zeros((U, U), dtype='bool')
 
-    fronts = [[]]
-    for fit in current_front:
-        fronts[-1].extend(map_fit_ind[fit])
-    pareto_sorted = len(fronts[-1])
+    # get the first pareto optimal front as all the fitness values
+    # that are not dominated by any of the other fitness values
+    for i, i_fit in enumerate(unique_values):
+        # check if a fitness value is dominated
+        # by any of the other fitness values
+        for j, j_fit in zip(range(i+1, U), unique_values[i+1:]):
+            # check domination
+            if dominates_numpy(i_fit, j_fit):
+                dominated_count[j] += 1
+                dominated_matrix[i, j] = True
+            elif dominates_numpy(j_fit, i_fit):
+                dominated_count[i] += 1
+                dominated_matrix[j, i] = True
+        # add to the front the fitness value
+        # if it is not dominated by anything else
+        if dominated_count[i] == 0:
+            num_selected += unique_counts[i]
+            prev_front.append(i)
+            # exit early
+            if num_selected >= N:
+                return fronts_idxs
 
-    # Rank the next front until all individuals are sorted or
-    # the given number of individual are sorted.
-    if not first_front_only:
-        N = min(len(population), num)
-        while pareto_sorted < N:
-            fronts.append([])
-            for fit_p in current_front:
-                for fit_d in dominated_fits[fit_p]:
-                    dominating_fits[fit_d] -= 1
-                    if dominating_fits[fit_d] == 0:
-                        next_front.append(fit_d)
-                        pareto_sorted += len(map_fit_ind[fit_d])
-                        fronts[-1].extend(map_fit_ind[fit_d])
-            current_front = next_front
-            next_front = []
+    # exit early
+    if pareto_front_only:
+        return fronts_idxs
 
-    return fronts
+    # repeatedly add the next fronts by checking which values
+    # are dominated by the previous fronts and then removing the dominated statistics.
+    while True:
+        # add a new front
+        next_front = []
+        fronts_idxs.append(next_front)
+
+        # todo this can be improved
+        for i in prev_front:
+            (js,) = np.where(dominated_matrix[i])
+            for j in js:
+                dominated_count[j] -= 1
+                if dominated_count[j] == 0:
+                    num_selected += unique_counts[j]
+                    next_front.append(j)
+                    # exit early
+                    if num_selected >= N:
+                        return fronts_idxs
+
+        # update the last front
+        prev_front = next_front
 
 
-def get_crowding_distances(population: Population):
+def get_crowding_distances(fitnesses: Sequence[Tuple[float, ...]]):
     """
     Assign a crowding distance to each individual's fitness. The
     crowding distance can be retrieve via the :attr:`crowding_dist`
     attribute of each individual's fitness.
     """
-    if len(population) == 0:
+    if len(fitnesses) == 0:
         return []
 
-    distances = [0.0] * len(population)
-    crowd = [(member.fitness, i) for i, member in enumerate(population)]
+    distances = [0.0] * len(fitnesses)
+    crowd = [(f, i) for i, f in enumerate(fitnesses)]
 
-    nobj = len(population[0].fitness)
+    nobj = len(fitnesses[0])
 
     for i in range(nobj):
         crowd.sort(key=lambda element: element[0][i])
@@ -175,37 +241,16 @@ def get_crowding_distances(population: Population):
     return distances
 
 
-def dominates(fitness: Sequence[float], fitness_other: Sequence[float], weights: Sequence[float]):
+@numba.njit()
+def dominates_numpy(weighted_fitness: np.ndarray, weighted_fitness_other: np.ndarray):
     """
     Return true if ALL values are [greater than or equal] AND
     at least one value is strictly [greater than].
     - If any value is [less than] then it is non-dominating
-
-    == `all_greater_than_or_equal and any_greater_than`
-    == `(not any_less_than and any_greater_than)`                 *NB*
-    == `(not any_less_than and not all_less_than_or_equal)`
-    == `not (any_less_than or all_less_than_or_equal)`
-    == `not (any_less_than or all_equal)`
     """
-    num_greater = 0
-    for fit_0, fit_1, weight in zip(fitness, fitness_other, weights):
-        w_fit_0 = weight * fit_0
-        w_fit_1 = weight * fit_1
-        # update equal
-        if w_fit_0 > w_fit_1:
-            num_greater += 1
-        if w_fit_0 < w_fit_1:
-            # we exit early if any value is [less than]
-            return False
-    # We return true if all the values are  [greater than or equal]
-    # AND at least one is strictly [greater than]
-    return num_greater > 0
+    # pre-multiply fitness values by weight
+    return not np.any(weighted_fitness < weighted_fitness_other) and np.any(weighted_fitness > weighted_fitness_other)
 
-
-def dominates_numpy(fitness: np.ndarray, fitness_other: np.ndarray, weights: np.ndarray):
-    f0 = weights * fitness
-    f1 = weights * fitness_other
-    return not np.any(f0 < f1) and np.any(f0 > f1)
 
 # ========================================================================= #
 # END                                                                       #

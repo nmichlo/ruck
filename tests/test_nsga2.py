@@ -23,18 +23,17 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 
-
-# ========================================================================= #
-# TEST                                                                      #
-# ========================================================================= #
-
-
 import numpy as np
 import pytest
 
 from ruck import Member
 from ruck.external.deap import select_nsga2
 from ruck.external.deap import select_nsga2_custom
+
+
+# ========================================================================= #
+# TEST                                                                      #
+# ========================================================================= #
 
 
 @pytest.mark.parametrize(['population_size', 'sel_num', 'fitness_size', 'weights'], [
@@ -73,3 +72,7 @@ def test(population_size, sel_num, fitness_size, weights):
     sel_lib = select_nsga2_custom(population, sel_num, weights)
     # checks
     assert sel_ref == sel_lib
+
+# ========================================================================= #
+# END                                                                       #
+# ========================================================================= #
