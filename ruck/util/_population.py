@@ -22,58 +22,45 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-
+from typing import Sequence
 import numpy as np
-import pytest
-
-from ruck import Member
-from ruck.external.deap import select_nsga2
-from ruck.external.deap import select_nsga2_custom
+from ruck import Population
 
 
 # ========================================================================= #
-# TEST                                                                      #
+# Population Helper                                                         #
 # ========================================================================= #
 
 
-@pytest.mark.parametrize(['population_size', 'sel_num', 'fitness_size', 'weights'], [
-    # basic
-    (0, 0, 2, (1, 1)),
-    (1, 0, 2, (1, 1)),
-    # (0, 1, 2, (1, 1)),
-    (1, 1, 2, (1, 1)),
-    # larger
-    (10, 0,  2, (1, 1)),
-    (10, 1,  2, (1, 1)),
-    (10, 5,  2, (1, 1)),
-    (10, 9,  2, (1, 1)),
-    (10, 10, 2, (1, 1)),
-    # (10, 11, 2, (1, 1)),
-    # (10, 20, 2, (1, 1)),
-    # weights
-    (10, 5, 2, ( 1,  1)),
-    (10, 5, 2, (-1,  1)),
-    (10, 5, 2, ( 1, -1)),
-    (10, 5, 2, (-1, -1)),
-    (10, 5, 3, (1, -1, 1)),
-    (10, 5, 4, (1, -1, 1, -1)),
-    (10, 5, 1, (1,)),
-    (10, 5, 1, (-1,)),
-])
-def test(population_size, sel_num, fitness_size, weights):
-    np.random.seed(42)
-    # generate population
-    population = [
-        Member(i, fitness=tuple(np.random.randint(5, size=fitness_size)))
-        for i in range(population_size)
-    ]
-    # select
-    sel_ref = select_nsga2(population, sel_num, weights)
-    sel_lib = select_nsga2_custom(population, sel_num, weights)
-    # checks
-    assert [m.value for m in sel_ref] == [m.value for m in sel_lib]
-    assert [m.fitness for m in sel_ref] == [m.fitness for m in sel_lib]
-    assert sel_ref == sel_lib
+def population_fitnesses(population: Population, weights: Sequence[float] = None) -> np.ndarray:
+    """
+    Obtain an array of normalized fitness values from a population, the output
+    shape always has two dimensions. (len(population), len(fitness))
+    - Fitness values have ndim==0 or ndim==1 and are always expanded to ndim=1
+
+    If weights are specified then we multiply by the normalized weights too.
+    - Weights have ndim==0 or ndim==1 and are broadcast to match the fitness values.
+    """
+    fitnesses = np.array([m.fitness for m in population])
+    # check dims
+    if fitnesses.ndim == 1:
+        fitnesses = fitnesses[:, None]
+    assert fitnesses.ndim == 2
+    # exit early
+    if fitnesses.size == 0:
+        return fitnesses
+    # handle weights
+    if weights is not None:
+        weights = np.array(weights)
+        # check dims
+        if weights.ndim == 0:
+            weights = weights[None]
+        assert weights.ndim == 1
+        # multiply
+        fitnesses *= weights[None, :]
+        assert fitnesses.ndim == 2
+    # done
+    return fitnesses  # shape: (len(population), len(fitness))
 
 
 # ========================================================================= #

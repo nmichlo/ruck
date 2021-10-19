@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
 
     def run_sweep(
-        repeats: int = 1,
+        repeats: int = 10,
         mul_iters: int = 1,
         weights: Tuple[int, ...] = (1, -1),
         seed: int = 42,
@@ -74,7 +74,7 @@ if __name__ == '__main__':
             # run versions
             time_new = timeit.timeit(lambda: select_nsga2_custom(population, N//2, weights), number=repeats) / repeats * mul_iters
             print(f'- NEW: {N}-{N//2}: {time_new}sec for {mul_iters} iters')
-            time_old = timeit.timeit(lambda:        select_nsga2(population, N//2, weights), number=repeats) / repeats * mul_iters
+            time_old = timeit.timeit(lambda:        select_nsga2(population, N//2, weights), number=1) / 1 * mul_iters
             print(f'- OLD: {N}-{N//2}: {time_old}sec for {mul_iters} iters')
             print(f'* speedup: {time_old/time_new:3f}x')
 

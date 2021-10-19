@@ -23,59 +23,29 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 
-import numpy as np
-import pytest
-
-from ruck import Member
-from ruck.external.deap import select_nsga2
-from ruck.external.deap import select_nsga2_custom
-
-
 # ========================================================================= #
-# TEST                                                                      #
+# Timer                                                                     #
 # ========================================================================= #
 
 
-@pytest.mark.parametrize(['population_size', 'sel_num', 'fitness_size', 'weights'], [
-    # basic
-    (0, 0, 2, (1, 1)),
-    (1, 0, 2, (1, 1)),
-    # (0, 1, 2, (1, 1)),
-    (1, 1, 2, (1, 1)),
-    # larger
-    (10, 0,  2, (1, 1)),
-    (10, 1,  2, (1, 1)),
-    (10, 5,  2, (1, 1)),
-    (10, 9,  2, (1, 1)),
-    (10, 10, 2, (1, 1)),
-    # (10, 11, 2, (1, 1)),
-    # (10, 20, 2, (1, 1)),
-    # weights
-    (10, 5, 2, ( 1,  1)),
-    (10, 5, 2, (-1,  1)),
-    (10, 5, 2, ( 1, -1)),
-    (10, 5, 2, (-1, -1)),
-    (10, 5, 3, (1, -1, 1)),
-    (10, 5, 4, (1, -1, 1, -1)),
-    (10, 5, 1, (1,)),
-    (10, 5, 1, (-1,)),
-])
-def test(population_size, sel_num, fitness_size, weights):
-    np.random.seed(42)
-    # generate population
-    population = [
-        Member(i, fitness=tuple(np.random.randint(5, size=fitness_size)))
-        for i in range(population_size)
-    ]
-    # select
-    sel_ref = select_nsga2(population, sel_num, weights)
-    sel_lib = select_nsga2_custom(population, sel_num, weights)
-    # checks
-    assert [m.value for m in sel_ref] == [m.value for m in sel_lib]
-    assert [m.fitness for m in sel_ref] == [m.fitness for m in sel_lib]
-    assert sel_ref == sel_lib
+def optional_njit(*args, **kwargs):
+    def _decorator(fn):
+        # try import numba
+        try:
+            import numba
+        except ImportError:
+            import warnings
+            warnings.warn(f'Performance of {fn.__name__} will be slow. Skipping JIT compilation because numba is not installed!')
+            numba = None
+        # handle cases
+        if numba is not None:
+            fn = numba.njit(*args, **kwargs)(fn)
+        # done!
+        return fn
+    # return decorator
+    return _decorator
 
 
 # ========================================================================= #
-# END                                                                       #
+# lists                                                                     #
 # ========================================================================= #

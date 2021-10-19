@@ -22,13 +22,10 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-
 import numpy as np
 import pytest
 
-from ruck import Member
-from ruck.external.deap import select_nsga2
-from ruck.external.deap import select_nsga2_custom
+from ruck.util.array import arggroup
 
 
 # ========================================================================= #
@@ -36,44 +33,33 @@ from ruck.external.deap import select_nsga2_custom
 # ========================================================================= #
 
 
-@pytest.mark.parametrize(['population_size', 'sel_num', 'fitness_size', 'weights'], [
-    # basic
-    (0, 0, 2, (1, 1)),
-    (1, 0, 2, (1, 1)),
-    # (0, 1, 2, (1, 1)),
-    (1, 1, 2, (1, 1)),
-    # larger
-    (10, 0,  2, (1, 1)),
-    (10, 1,  2, (1, 1)),
-    (10, 5,  2, (1, 1)),
-    (10, 9,  2, (1, 1)),
-    (10, 10, 2, (1, 1)),
-    # (10, 11, 2, (1, 1)),
-    # (10, 20, 2, (1, 1)),
-    # weights
-    (10, 5, 2, ( 1,  1)),
-    (10, 5, 2, (-1,  1)),
-    (10, 5, 2, ( 1, -1)),
-    (10, 5, 2, (-1, -1)),
-    (10, 5, 3, (1, -1, 1)),
-    (10, 5, 4, (1, -1, 1, -1)),
-    (10, 5, 1, (1,)),
-    (10, 5, 1, (-1,)),
-])
-def test(population_size, sel_num, fitness_size, weights):
-    np.random.seed(42)
-    # generate population
-    population = [
-        Member(i, fitness=tuple(np.random.randint(5, size=fitness_size)))
-        for i in range(population_size)
-    ]
-    # select
-    sel_ref = select_nsga2(population, sel_num, weights)
-    sel_lib = select_nsga2_custom(population, sel_num, weights)
-    # checks
-    assert [m.value for m in sel_ref] == [m.value for m in sel_lib]
-    assert [m.fitness for m in sel_ref] == [m.fitness for m in sel_lib]
-    assert sel_ref == sel_lib
+def _assert_groups_equal(groups, targets):
+    groups = [np.array(g).tolist() for g in groups]
+    targets = [np.array(t).tolist() for t in targets]
+    assert groups == targets
+
+
+def test_arggroup_axis():
+    numbers = [[2, 0], [2, 2], [0, 0], [2, 1], [2, 2], [2, 2], [0, 2], [1, 0], [1, 1], [1, 1]]
+    targets = [[2], [6], [7], [8, 9], [0], [3], [1, 4, 5]]
+    # check that transposing everything works!
+    _assert_groups_equal(arggroup(numbers,                      axis=0), targets)
+    _assert_groups_equal(arggroup(np.array(numbers),            axis=0), targets)
+    _assert_groups_equal(arggroup(np.array(numbers).T.tolist(), axis=1), targets)
+    _assert_groups_equal(arggroup(np.array(numbers).T,          axis=1), targets)
+
+
+def test_arggroup():
+    _assert_groups_equal(arggroup([]),               [])
+    _assert_groups_equal(arggroup(np.zeros([0])),    [])
+    _assert_groups_equal(arggroup(np.zeros([0, 0])), [])
+    _assert_groups_equal(arggroup(np.zeros([1, 0])), [])
+    _assert_groups_equal(arggroup(np.zeros([0, 1])), [])
+    _assert_groups_equal(arggroup([1, 2, 3, 3]),    [[0], [1], [2, 3]])
+    _assert_groups_equal(arggroup([3, 2, 1, 3]),    [[2], [1], [0, 3]])
+    # check ndim=0
+    with pytest.raises(ValueError, match=r'input array must have at least one dimension'): arggroup(0)
+    with pytest.raises(ValueError, match=r'input array must have at least one dimension'): arggroup(np.zeros([]))
 
 
 # ========================================================================= #
