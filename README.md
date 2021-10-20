@@ -43,17 +43,13 @@ Ruck aims to fill the following criteria:
 ## Features
 
 Ruck has various features that will be expanded upon in time
-- 📦 Modular evolutionary systems inspired by pytorch lightning
+- 📦 &nbsp; Modular evolutionary systems inspired by pytorch lightning
   + Helps organise code & arguably looks clean
-  
-- ➕ Multi-Objective optimisation support
-  + Optionally optimised version of NSGA-II if `numba` is installed, over 65x faster
-  
-- 🏎 Optional multithreading support with `ray`, including helper functions
-
-- 🏭 Factory methods for simple evolutionary algorithms
-
-- 🧪 Various helper functions for selection, mutation and mating
+- 🎯 &nbsp; Multi-Objective optimisation support
+  + Optionally optimised version of NSGA-II if `numba` is installed, over 65x faster than the DEAP equivalent
+- 🏎 &nbsp; Optional multithreading support with `ray`, including helper functions
+- 🏭 &nbsp; Factory methods for simple evolutionary algorithms
+- 🧪 &nbsp; Various helper functions for selection, mutation and mating
 
 
 ## Citing Ruck
