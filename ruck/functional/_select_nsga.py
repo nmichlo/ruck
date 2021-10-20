@@ -23,6 +23,7 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 from typing import List
+from typing import Optional
 from typing import Sequence
 
 import numpy as np
@@ -40,7 +41,7 @@ from ruck.util._population import population_fitnesses
 
 
 @check_selection
-def select_nsga2(population: Population, num: int, weights: Sequence[float]):
+def select_nsga2(population: Population, num: int, weights: Optional[Sequence[float]] = None):
     """
     NSGA-II works by:
         1. grouping the population fitness values into successive fronts with non-dominated sorting.
