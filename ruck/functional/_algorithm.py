@@ -31,7 +31,7 @@ import numpy as np
 
 from ruck._member import Member
 from ruck._member import Population
-from ruck.functional import SelectFnHint
+from ruck.functional._select import SelectFnHint
 from ruck.functional._mate import MateFnHint
 from ruck.functional._mutate import MutateFnHint
 from ruck.util._iter import chained

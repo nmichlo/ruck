@@ -25,7 +25,7 @@
 import numpy as np
 import pytest
 
-from ruck.util.array import arggroup
+from ruck.util._array import arggroup
 
 
 # ========================================================================= #
@@ -41,12 +41,18 @@ def _assert_groups_equal(groups, targets):
 
 def test_arggroup_axis():
     numbers = [[2, 0], [2, 2], [0, 0], [2, 1], [2, 2], [2, 2], [0, 2], [1, 0], [1, 1], [1, 1]]
-    targets = [[2], [6], [7], [8, 9], [0], [3], [1, 4, 5]]
+    targets            = [[2], [6], [7], [8, 9], [0], [3], [1, 4, 5]]
+    targets_orig_order = [[0], [1, 4, 5], [2], [3], [6], [7], [8, 9]]
     # check that transposing everything works!
-    _assert_groups_equal(arggroup(numbers,                      axis=0), targets)
-    _assert_groups_equal(arggroup(np.array(numbers),            axis=0), targets)
-    _assert_groups_equal(arggroup(np.array(numbers).T.tolist(), axis=1), targets)
-    _assert_groups_equal(arggroup(np.array(numbers).T,          axis=1), targets)
+    _assert_groups_equal(arggroup(numbers,                      axis=0), targets_orig_order)
+    _assert_groups_equal(arggroup(np.array(numbers),            axis=0), targets_orig_order)
+    _assert_groups_equal(arggroup(np.array(numbers).T.tolist(), axis=1), targets_orig_order)
+    _assert_groups_equal(arggroup(np.array(numbers).T,          axis=1), targets_orig_order)
+    # check that transposing everything works!
+    _assert_groups_equal(arggroup(numbers,                      axis=0, keep_order=False), targets)
+    _assert_groups_equal(arggroup(np.array(numbers),            axis=0, keep_order=False), targets)
+    _assert_groups_equal(arggroup(np.array(numbers).T.tolist(), axis=1, keep_order=False), targets)
+    _assert_groups_equal(arggroup(np.array(numbers).T,          axis=1, keep_order=False), targets)
 
 
 def test_arggroup():
@@ -56,7 +62,7 @@ def test_arggroup():
     _assert_groups_equal(arggroup(np.zeros([1, 0])), [])
     _assert_groups_equal(arggroup(np.zeros([0, 1])), [])
     _assert_groups_equal(arggroup([1, 2, 3, 3]),    [[0], [1], [2, 3]])
-    _assert_groups_equal(arggroup([3, 2, 1, 3]),    [[2], [1], [0, 3]])
+    _assert_groups_equal(arggroup([3, 2, 1, 3]),    [[0, 3], [1], [2]])
     # check ndim=0
     with pytest.raises(ValueError, match=r'input array must have at least one dimension'): arggroup(0)
     with pytest.raises(ValueError, match=r'input array must have at least one dimension'): arggroup(np.zeros([]))

@@ -22,9 +22,23 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-from ruck.functional._mate import *
-from ruck.functional._mutate import *
-from ruck.functional._select import *
+from ruck.functional._mate import check_mating
+from ruck.functional._mate import mate_crossover_1d
+from ruck.functional._mate import mate_crossover_nd
+
+from ruck.functional._mutate import check_mutation
+from ruck.functional._mutate import mutate_flip_bits
+from ruck.functional._mutate import mutate_flip_bit_groups
+
+from ruck.functional._select import check_selection
+from ruck.functional._select import select_best
+from ruck.functional._select import select_worst
+from ruck.functional._select import select_random
+from ruck.functional._select import select_tournament
+
+from ruck.functional._select_nsga import select_nsga2
+from ruck.functional._select_nsga import argsort_non_dominated
+from ruck.functional._select_nsga import compute_crowding_distances
 
 # helper -- should be replaced
 from ruck.functional._algorithm import *

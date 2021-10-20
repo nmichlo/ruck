@@ -27,8 +27,8 @@ import numpy as np
 import pytest
 
 from ruck import Member
-from ruck.external.deap import select_nsga2
-from ruck.external.deap import select_nsga2_custom
+from ruck.functional import select_nsga2 as select_nsga2_ruck
+from ruck.external.deap import select_nsga2 as select_nsga2_deap
 
 
 # ========================================================================= #
@@ -68,12 +68,12 @@ def test(population_size, sel_num, fitness_size, weights):
         for i in range(population_size)
     ]
     # select
-    sel_ref = select_nsga2(population, sel_num, weights)
-    sel_lib = select_nsga2_custom(population, sel_num, weights)
+    sel_deap = select_nsga2_deap(population, sel_num, weights)
+    sel_ruck = select_nsga2_ruck(population, sel_num, weights)
     # checks
-    assert [m.value for m in sel_ref] == [m.value for m in sel_lib]
-    assert [m.fitness for m in sel_ref] == [m.fitness for m in sel_lib]
-    assert sel_ref == sel_lib
+    assert [m.value for m in sel_deap] == [m.value for m in sel_ruck]
+    assert [m.fitness for m in sel_deap] == [m.fitness for m in sel_ruck]
+    assert sel_deap == sel_ruck
 
 
 # ========================================================================= #
