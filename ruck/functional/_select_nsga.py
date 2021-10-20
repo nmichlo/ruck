@@ -22,6 +22,13 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
+"""
+This version of NSGA-II is inspired by that from DEAP.
+- The core of the algorithm is heavily modified for numba
+  support, with benchmarks over 65x faster for large arrays.
+"""
+
+
 from typing import List
 from typing import Optional
 from typing import Sequence
@@ -62,6 +69,11 @@ def select_nsga2(population: Population, num: int, weights: Optional[Sequence[fl
         Deb, Kalyanmoy, et al. "A fast elitist non-dominated sorting genetic algorithm for
         multi-objective optimization: NSGA-II." International conference on parallel problem
         solving from nature. Springer, Berlin, Heidelberg, 2000.
+
+    NOTE:
+        This version of NSGA-II is inspired by that from DEAP.
+        - The core of the algorithm is heavily modified for numba
+          support, with benchmarks over 65x faster for large arrays.
     """
     # 1. apply non-dominated sorting to get the sequential non-dominated fronts
     fitnesses = population_fitnesses(population, weights=weights)
