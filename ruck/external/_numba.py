@@ -22,23 +22,30 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-from ruck.functional._mate import check_mating
-from ruck.functional._mate import mate_crossover_1d
-from ruck.functional._mate import mate_crossover_nd
 
-from ruck.functional._mutate import check_mutation
-from ruck.functional._mutate import mutate_flip_bits
-from ruck.functional._mutate import mutate_flip_bit_groups
+# ========================================================================= #
+# Timer                                                                     #
+# ========================================================================= #
 
-from ruck.functional._select import check_selection
-from ruck.functional._select import select_best
-from ruck.functional._select import select_worst
-from ruck.functional._select import select_random
-from ruck.functional._select import select_tournament
 
-from ruck.functional._select_nsga import select_nsga2
-from ruck.functional._select_nsga import argsort_non_dominated
-from ruck.functional._select_nsga import compute_crowding_distances
+def optional_njit(*args, **kwargs):
+    def _decorator(fn):
+        # try import numba
+        try:
+            import numba
+        except ImportError:
+            import warnings
+            warnings.warn(f'Performance of {fn.__name__} will be slow. Skipping JIT compilation because numba is not installed!')
+            numba = None
+        # handle cases
+        if numba is not None:
+            fn = numba.njit(*args, **kwargs)(fn)
+        # done!
+        return fn
+    # return decorator
+    return _decorator
 
-# helper -- should be replaced
-from ruck.functional._algorithm import *
+
+# ========================================================================= #
+# lists                                                                     #
+# ========================================================================= #
