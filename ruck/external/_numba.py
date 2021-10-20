@@ -28,7 +28,13 @@
 # ========================================================================= #
 
 
-def optional_njit(*args, **kwargs):
+def optional_njit(*args, cache=True, **kwargs):
+    """
+    Optionally apply the numba JIT to a function if numba is installed.
+    - Additionally by default sets the cache=True value on
+      the JIT functions so that startup times are faster!
+    """
+
     def _decorator(fn):
         # try import numba
         try:
@@ -39,7 +45,7 @@ def optional_njit(*args, **kwargs):
             numba = None
         # handle cases
         if numba is not None:
-            fn = numba.njit(*args, **kwargs)(fn)
+            fn = numba.njit(*args, cache=cache, **kwargs)(fn)
         # done!
         return fn
     # return decorator
