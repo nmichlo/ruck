@@ -22,53 +22,57 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-import setuptools
+
+from typing import Sequence
+from typing import Union
+
+import numpy as np
 
 
 # ========================================================================= #
-# HELPER                                                                    #
+# Array Util                                                                #
 # ========================================================================= #
 
 
-with open("README.md", "r", encoding="utf-8") as file:
-    long_description = file.read()
+def arggroup(
+    numbers: Union[Sequence, np.ndarray],
+    axis=0,
+    keep_order=True,
+    return_unique: bool = False,
+    return_index: bool = False,
+    return_counts: bool = False,
+):
+    """
+    Group all the elements of the array.
+    - The returned groups contain the indices of
+      the original position in the arrays.
+    """
 
-with open('requirements.txt', 'r') as f:
-    install_requires = (req[0] for req in map(lambda x: x.split('#'), f.readlines()))
-    install_requires = [req for req in map(str.strip, install_requires) if req]
-
-
-# ========================================================================= #
-# SETUP                                                                     #
-# ========================================================================= #
-
-
-setuptools.setup(
-    name="ruck",
-    author="Nathan Juraj Michlo",
-    author_email="NathanJMichlo@gmail.com",
-
-    version="0.2.4",
-    python_requires=">=3.6",
-    packages=setuptools.find_packages(),
-
-    install_requires=install_requires,
-
-    url="https://github.com/nmichlo/ruck",
-    description="Performant evolutionary algorithms for Python.",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-
-    classifiers=[
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Intended Audience :: Science/Research",
-    ],
-)
+    # convert
+    if not isinstance(numbers, np.ndarray):
+        numbers = np.array(numbers)
+    # checks
+    if numbers.ndim == 0:
+        raise ValueError('input array must have at least one dimension')
+    if numbers.size == 0:
+        return []
+    # we need to obtain the sorted groups of
+    unique, index, inverse, counts = np.unique(numbers, return_index=True, return_inverse=True, return_counts=True, axis=axis)
+    # same as [ary[:idx[0]], ary[idx[0]:idx[1]], ..., ary[idx[-2]:idx[-1]], ary[idx[-1]:]]
+    groups = np.split(ary=np.argsort(inverse, axis=0), indices_or_sections=np.cumsum(counts)[:-1], axis=0)
+    # maintain original order
+    if keep_order:
+        add_order = index.argsort()  # the order that items were added in
+        groups = [groups[i] for i in add_order]
+    # return values
+    results = [groups]
+    if return_unique:  results.append(unique[add_order] if keep_order else unique)
+    if return_index:   results.append(index[add_order]  if keep_order else index)
+    if return_counts:  results.append(counts[add_order] if keep_order else counts)
+    # unpack
+    if len(results) == 1:
+        return results[0]
+    return results
 
 
 # ========================================================================= #

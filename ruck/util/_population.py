@@ -22,53 +22,45 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-import setuptools
+from typing import Sequence
+import numpy as np
+from ruck import Population
 
 
 # ========================================================================= #
-# HELPER                                                                    #
+# Population Helper                                                         #
 # ========================================================================= #
 
 
-with open("README.md", "r", encoding="utf-8") as file:
-    long_description = file.read()
+def population_fitnesses(population: Population, weights: Sequence[float] = None) -> np.ndarray:
+    """
+    Obtain an array of normalized fitness values from a population, the output
+    shape always has two dimensions. (len(population), len(fitness))
+    - Fitness values have ndim==0 or ndim==1 and are always expanded to ndim=1
 
-with open('requirements.txt', 'r') as f:
-    install_requires = (req[0] for req in map(lambda x: x.split('#'), f.readlines()))
-    install_requires = [req for req in map(str.strip, install_requires) if req]
-
-
-# ========================================================================= #
-# SETUP                                                                     #
-# ========================================================================= #
-
-
-setuptools.setup(
-    name="ruck",
-    author="Nathan Juraj Michlo",
-    author_email="NathanJMichlo@gmail.com",
-
-    version="0.2.4",
-    python_requires=">=3.6",
-    packages=setuptools.find_packages(),
-
-    install_requires=install_requires,
-
-    url="https://github.com/nmichlo/ruck",
-    description="Performant evolutionary algorithms for Python.",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-
-    classifiers=[
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Intended Audience :: Science/Research",
-    ],
-)
+    If weights are specified then we multiply by the normalized weights too.
+    - Weights have ndim==0 or ndim==1 and are broadcast to match the fitness values.
+    """
+    fitnesses = np.array([m.fitness for m in population])
+    # check dims
+    if fitnesses.ndim == 1:
+        fitnesses = fitnesses[:, None]
+    assert fitnesses.ndim == 2
+    # exit early
+    if fitnesses.size == 0:
+        return fitnesses
+    # handle weights
+    if weights is not None:
+        weights = np.array(weights)
+        # check dims
+        if weights.ndim == 0:
+            weights = weights[None]
+        assert weights.ndim == 1
+        # multiply
+        fitnesses *= weights[None, :]
+        assert fitnesses.ndim == 2
+    # done
+    return fitnesses  # shape: (len(population), len(fitness))
 
 
 # ========================================================================= #

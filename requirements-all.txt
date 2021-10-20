@@ -2,6 +2,9 @@ pip>=21.0
 numpy>=1.19
 tqdm>=4
 
+# optional for performance improvements
+numba>=0.40.0
+
 # requirements needed for examples too
 ray>=1.6.0
 deap>=1.3

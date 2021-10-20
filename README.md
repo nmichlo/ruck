@@ -40,6 +40,22 @@ Ruck aims to fill the following criteria:
 2. Be easily **extensible** and **debuggable**.
 3. Performant while maintaining its simplicity.
 
+## Features
+
+Ruck has various features that will be expanded upon in time
+- 📦 Modular evolutionary systems inspired by pytorch lightning
+  + Helps organise code & arguably looks clean
+  
+- ➕ Multi-Objective optimisation support
+  + Optionally optimised version of NSGA-II if `numba` is installed, over 65x faster
+  
+- 🏎 Optional multithreading support with `ray`, including helper functions
+
+- 🏭 Factory methods for simple evolutionary algorithms
+
+- 🧪 Various helper functions for selection, mutation and mating
+
+
 ## Citing Ruck
 
 Please use the following citation if you use Ruck in your research:

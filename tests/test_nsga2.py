@@ -22,53 +22,58 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-import setuptools
+
+import numpy as np
+import pytest
+
+from ruck import Member
+from ruck.functional import select_nsga2 as select_nsga2_ruck
+from ruck.external.deap import select_nsga2 as select_nsga2_deap
 
 
 # ========================================================================= #
-# HELPER                                                                    #
+# TEST                                                                      #
 # ========================================================================= #
 
 
-with open("README.md", "r", encoding="utf-8") as file:
-    long_description = file.read()
-
-with open('requirements.txt', 'r') as f:
-    install_requires = (req[0] for req in map(lambda x: x.split('#'), f.readlines()))
-    install_requires = [req for req in map(str.strip, install_requires) if req]
-
-
-# ========================================================================= #
-# SETUP                                                                     #
-# ========================================================================= #
-
-
-setuptools.setup(
-    name="ruck",
-    author="Nathan Juraj Michlo",
-    author_email="NathanJMichlo@gmail.com",
-
-    version="0.2.4",
-    python_requires=">=3.6",
-    packages=setuptools.find_packages(),
-
-    install_requires=install_requires,
-
-    url="https://github.com/nmichlo/ruck",
-    description="Performant evolutionary algorithms for Python.",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-
-    classifiers=[
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Intended Audience :: Science/Research",
-    ],
-)
+@pytest.mark.parametrize(['population_size', 'sel_num', 'fitness_size', 'weights'], [
+    # basic
+    (0, 0, 2, (1, 1)),
+    (1, 0, 2, (1, 1)),
+    # (0, 1, 2, (1, 1)),
+    (1, 1, 2, (1, 1)),
+    # larger
+    (10, 0,  2, (1, 1)),
+    (10, 1,  2, (1, 1)),
+    (10, 5,  2, (1, 1)),
+    (10, 9,  2, (1, 1)),
+    (10, 10, 2, (1, 1)),
+    # (10, 11, 2, (1, 1)),
+    # (10, 20, 2, (1, 1)),
+    # weights
+    (10, 5, 2, ( 1,  1)),
+    (10, 5, 2, (-1,  1)),
+    (10, 5, 2, ( 1, -1)),
+    (10, 5, 2, (-1, -1)),
+    (10, 5, 3, (1, -1, 1)),
+    (10, 5, 4, (1, -1, 1, -1)),
+    (10, 5, 1, (1,)),
+    (10, 5, 1, (-1,)),
+])
+def test(population_size, sel_num, fitness_size, weights):
+    np.random.seed(42)
+    # generate population
+    population = [
+        Member(i, fitness=tuple(np.random.randint(5, size=fitness_size)))
+        for i in range(population_size)
+    ]
+    # select
+    sel_deap = select_nsga2_deap(population, sel_num, weights)
+    sel_ruck = select_nsga2_ruck(population, sel_num, weights)
+    # checks
+    assert [m.value for m in sel_deap] == [m.value for m in sel_ruck]
+    assert [m.fitness for m in sel_deap] == [m.fitness for m in sel_ruck]
+    assert sel_deap == sel_ruck
 
 
 # ========================================================================= #

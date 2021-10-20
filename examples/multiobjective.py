@@ -25,7 +25,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from ruck import *
-from ruck.external.deap import select_nsga2
+from ruck.functional import select_nsga2
 
 
 class MultiObjectiveMinimalModule(EaModule):
