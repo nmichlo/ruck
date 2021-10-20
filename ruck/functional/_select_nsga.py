@@ -269,7 +269,8 @@ def _dominates(w_fitness, w_fitness_other):
 def compute_crowding_distances(positions) -> np.ndarray:
     """
     Compute the crowding distance for each position in an array.
-    - These are usually a 2D array of fitness values
+    - The input is 2D array of fitness values
+    - Effectively measuring the bounding box around individual elements towards their nearest neighbours.
 
     The general algorithm for the crowding distance is:
     1. for each component of the fitness/position, add to the distance for each element:
@@ -279,8 +280,16 @@ def compute_crowding_distances(positions) -> np.ndarray:
            | the value added is the distance between its two neighbours over the normalisation
            | value, which is a multiple of the (max - min) over all values
 
-    TODO: Is there not a better algorithm than this? The crowding
-          distance seems very dependant on alignment with axes?
+    NOTE -- on determinism & scaling:
+        While this implementation of crowding distances are independent of scale, the
+        results are usually not deterministic for different scaled values if there are
+        repeats. This is because distances are assigned to neighbours in the order they appear,
+        and negative weights will reverse the order. An alternative crowding distance implementation
+        may consider repeated values. But care would need to be taken to handle this.
+
+    TODO: Is there not a better algorithm than this? The crowding distance seems
+          very dependant on alignment with axes? It is also dependant on the order
+          elements appear if there are repeated values!
     """
     # make sure we have the right datatype
     if not isinstance(positions, np.ndarray):
@@ -289,35 +298,40 @@ def compute_crowding_distances(positions) -> np.ndarray:
 
 
 @optional_njit()
-def _get_crowding_distances(positions: np.ndarray) -> np.ndarray:
+def _get_crowding_distances(positions: np.ndarray, handle_non_unique: bool = True) -> np.ndarray:
     # get shape
     assert positions.ndim == 2
     N, F = positions.shape
-    # exit early
-    if N == 0:
-        return np.zeros(0, dtype='float64')
     # store for the values
     distances = np.zeros(N, dtype='float64')
+    # exit early
+    if N < 3:
+        distances[:] = np.inf
+        return distances
     # 1. for each fitness component, update the distance for each member!
     for crowd in positions.T:
         # 2. sort in increasing order
         crowd_idxs = np.argsort(crowd)
         crowd = crowd[crowd_idxs]
         # 3. update endpoint distances
+        #    NOTE: determinism comes into play here. The endpoint distances may
+        #          be assigned differently if endpoint values are the same or we have repeats.
         distances[crowd_idxs[0]] = np.inf
         distances[crowd_idxs[-1]] = np.inf
         # get endpoints
         m = crowd[0]
         M = crowd[-1]
-        # skip if the endpoints are the same (values will be zero if this is the case)
+        # skip if the endpoints are the same all distances should be inf
         # or if there are not enough elements to compute over consecutive triples
-        if (M == m) or (len(crowd) < 3):
+        if M == m:
             continue
         # normalize the values between the maximum and minimum distances
         # NOTE: the original NSGA-II paper does not apply this normalization constant...
         norm = F * (M - m)
         # 4. compute the distance as the difference between the previous
         # and next values all over the normalize distance
+        #    NOTE: determinism comes into play here. The distances may be assigned
+        #          differently based on the order they appear first if we have repeats.
         distances[crowd_idxs[1:-1]] += (crowd[2:] - crowd[:-2]) / norm
     # return the distances!
     return distances
