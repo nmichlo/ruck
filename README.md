@@ -17,7 +17,7 @@
         <img alt="pypi version" src="https://img.shields.io/pypi/v/ruck?style=flat-square&color=blue"/>
     </a>
     <a href="https://github.com/nmichlo/ruck/actions?query=workflow%3Atest">
-        <img alt="tests status" src="https://img.shields.io/github/workflow/status/nmichlo/ruck/test?label=tests&style=flat-square"/>
+        <img alt="tests status" src="https://github.com/nmichlo/ruck/actions/workflows/python-test.yml/badge.svg"/>
     </a>
 </p>
 
