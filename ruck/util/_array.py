@@ -23,11 +23,9 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 
-from typing import Sequence
-from typing import Union
+from collections.abc import Sequence
 
 import numpy as np
-
 
 # ========================================================================= #
 # Array Util                                                                #
@@ -35,7 +33,7 @@ import numpy as np
 
 
 def arggroup(
-    numbers: Union[Sequence, np.ndarray],
+    numbers: Sequence | np.ndarray,
     axis=0,
     keep_order=True,
     return_unique: bool = False,
@@ -53,11 +51,13 @@ def arggroup(
         numbers = np.array(numbers)
     # checks
     if numbers.ndim == 0:
-        raise ValueError('input array must have at least one dimension')
+        raise ValueError("input array must have at least one dimension")
     if numbers.size == 0:
         return []
     # we need to obtain the sorted groups of
-    unique, index, inverse, counts = np.unique(numbers, return_index=True, return_inverse=True, return_counts=True, axis=axis)
+    unique, index, inverse, counts = np.unique(
+        numbers, return_index=True, return_inverse=True, return_counts=True, axis=axis
+    )
     # same as [ary[:idx[0]], ary[idx[0]:idx[1]], ..., ary[idx[-2]:idx[-1]], ary[idx[-1]:]]
     groups = np.split(ary=np.argsort(inverse, axis=0), indices_or_sections=np.cumsum(counts)[:-1], axis=0)
     # maintain original order
@@ -66,9 +66,12 @@ def arggroup(
         groups = [groups[i] for i in add_order]
     # return values
     results = [groups]
-    if return_unique:  results.append(unique[add_order] if keep_order else unique)
-    if return_index:   results.append(index[add_order]  if keep_order else index)
-    if return_counts:  results.append(counts[add_order] if keep_order else counts)
+    if return_unique:
+        results.append(unique[add_order] if keep_order else unique)
+    if return_index:
+        results.append(index[add_order] if keep_order else index)
+    if return_counts:
+        results.append(counts[add_order] if keep_order else counts)
     # unpack
     if len(results) == 1:
         return results[0]

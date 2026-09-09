@@ -24,26 +24,22 @@
 
 import itertools
 import logging
+from collections.abc import Iterator
 from typing import Generic
-from typing import Iterator
-from typing import Tuple
 from typing import TypeVar
 
-import numpy as np
 from tqdm import tqdm
 
 from ruck._history import HallOfFame
 from ruck._history import Logbook
-from ruck._history import StatsGroup
 from ruck._member import Member
 from ruck._member import Population
 from ruck._module import EaModule
 
-
 log = logging.getLogger(__name__)
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 # ========================================================================= #
@@ -52,11 +48,11 @@ T = TypeVar('T')
 
 
 def _check_population(population: Population[T], required_size: int) -> Population[T]:
-    assert len(population) > 0, 'population must not be empty'
-    assert len(population) == required_size, 'population size is invalid'
-    assert all(isinstance(member, Member) for member in population), 'items in population are not members'
+    assert len(population) > 0, "population must not be empty"
+    assert len(population) == required_size, "population size is invalid"
+    assert all(isinstance(member, Member) for member in population), "items in population are not members"
     types = {type(m.value) for m in population}
-    assert len(types) == 1, f'Population consists of members with different types: {list(types)}'
+    assert len(types) == 1, f"Population consists of members with different types: {list(types)}"
     return population
 
 
@@ -83,7 +79,7 @@ def _evaluate_unevaluated(module: EaModule[T], members: Population[T]) -> int:
 # ========================================================================= #
 
 
-def yield_population_steps(module: EaModule[T]) -> Iterator[Tuple[int, Population[T], Population[T], int]]:
+def yield_population_steps(module: EaModule[T]) -> Iterator[tuple[int, Population[T], Population[T], int]]:
     # 1. create population
     population = [Member(m) for m in module.gen_starting_values()]
     population_size = len(population)
@@ -115,7 +111,6 @@ def yield_population_steps(module: EaModule[T]) -> Iterator[Tuple[int, Populatio
 
 
 class Trainer(Generic[T]):
-
     def __init__(
         self,
         generations: int = 100,
@@ -129,14 +124,16 @@ class Trainer(Generic[T]):
         self._offspring_generator = offspring_generator
         assert self._history_n_best > 0
 
-    def fit(self, module: EaModule[T]) -> Tuple[Population[T], Logbook[T], HallOfFame[T]]:
+    def fit(self, module: EaModule[T]) -> tuple[Population[T], Logbook[T], HallOfFame[T]]:
         assert isinstance(module, EaModule)
         # history trackers
-        logbook = Logbook('gen', 'evals', **module.get_stats_groups())
+        logbook = Logbook("gen", "evals", **module.get_stats_groups())
         halloffame = HallOfFame(n_best=self._history_n_best, maximize=True)
         # progress bar and training loop
-        with tqdm(total=self._generations, desc='generation', disable=not self._progress, ncols=120) as p:
-            for gen, population, offspring, evals in itertools.islice(self._offspring_generator(module), self._generations):
+        with tqdm(total=self._generations, desc="generation", disable=not self._progress, ncols=120) as p:
+            for gen, population, offspring, evals in itertools.islice(
+                self._offspring_generator(module), self._generations
+            ):
                 # update statistics with new population
                 halloffame.update(offspring)
                 stats = logbook.record(population, gen=gen, evals=evals)

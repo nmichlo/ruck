@@ -1,0 +1,16 @@
+# runs `.pre-commit-config.yaml` verbatim, so `pre-commit run --all-files`
+# locally and CI can never disagree. tool config lives in `pyproject.toml`.
+
+name: lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  pre-commit:
+    uses: nmichlo/.github/.github/workflows/pre-commit.yaml@main
+    with:
+      # the `ty` hook needs the project's dependencies resolvable
+      install-extras: "jit,examples,test"

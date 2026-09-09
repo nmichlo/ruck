@@ -22,10 +22,11 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-from typing import Sequence
-import numpy as np
-from ruck import Population
+from collections.abc import Sequence
 
+import numpy as np
+
+from ruck import Population
 
 # ========================================================================= #
 # Population Helper                                                         #

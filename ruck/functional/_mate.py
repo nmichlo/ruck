@@ -22,33 +22,32 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable
-from typing import Tuple
 from typing import TypeVar
 
 import numpy as np
-
 
 # ========================================================================= #
 # Mate Helper                                                               #
 # ========================================================================= #
 
 
-F = TypeVar('F')
-T = TypeVar('T')
-MateFnHint = Callable[[T, T], Tuple[T, T]]
+F = TypeVar("F")
+T = TypeVar("T")
+MateFnHint = Callable[[T, T], tuple[T, T]]
 
 
 def check_mating(fn: F) -> F:
     @wraps(fn)
-    def wrapper(value_a: T, value_b: T, *args, **kwargs) -> Tuple[T, T]:
+    def wrapper(value_a: T, value_b: T, *args, **kwargs) -> tuple[T, T]:
         mated_a, mated_b = fn(value_a, value_b, *args, **kwargs)
-        assert mated_a is not value_a, f'Mate function: {fn} should return new values'
-        assert mated_a is not value_b, f'Mate function: {fn} should return new values'
-        assert mated_b is not value_a, f'Mate function: {fn} should return new values'
-        assert mated_b is not value_b, f'Mate function: {fn} should return new values'
+        assert mated_a is not value_a, f"Mate function: {fn} should return new values"
+        assert mated_a is not value_b, f"Mate function: {fn} should return new values"
+        assert mated_b is not value_a, f"Mate function: {fn} should return new values"
+        assert mated_b is not value_b, f"Mate function: {fn} should return new values"
         return mated_a, mated_b
+
     return wrapper
 
 
@@ -58,7 +57,7 @@ def check_mating(fn: F) -> F:
 
 
 @check_mating
-def mate_crossover_1d(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def mate_crossover_1d(a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     assert a.ndim == 1
     assert a.shape == b.shape
     # get slice
@@ -71,7 +70,7 @@ def mate_crossover_1d(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray, np.ndar
 
 
 @check_mating
-def mate_crossover_nd(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def mate_crossover_nd(a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     assert a.ndim >= 1
     assert a.shape == b.shape
     # get hypercube

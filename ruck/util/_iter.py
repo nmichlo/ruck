@@ -24,25 +24,20 @@
 
 
 import itertools
-import random
+from collections.abc import Iterable
+from collections.abc import Iterator
+from collections.abc import Sequence
 from typing import Any
-from typing import Callable
-from typing import Iterable
-from typing import Iterator
-from typing import List
-from typing import Sequence
-from typing import Tuple
 from typing import TypeVar
 
 import numpy as np
-
 
 # ========================================================================= #
 # Helper                                                                    #
 # ========================================================================= #
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 # ========================================================================= #
@@ -56,7 +51,7 @@ T = TypeVar('T')
 #             every Iterator is ALSO an Iterable
 
 
-def ipairs(items: Iterable[T]) -> Iterator[Tuple[T, T]]:
+def ipairs(items: Iterable[T]) -> Iterator[tuple[T, T]]:
     itr_a, itr_b = itertools.tee(items)
     itr_a = itertools.islice(itr_a, 0, None, 2)
     itr_b = itertools.islice(itr_b, 1, None, 2)
@@ -68,11 +63,11 @@ def ipairs(items: Iterable[T]) -> Iterator[Tuple[T, T]]:
 # ========================================================================= #
 
 
-def chained(list_of_lists: Iterable[Iterable[T]]) -> List[T]:
+def chained(list_of_lists: Iterable[Iterable[T]]) -> list[T]:
     return list(itertools.chain(*list_of_lists))
 
 
-def splits(items: Sequence[Any], num_chunks: int, keep_empty: bool = False) -> List[List[Any]]:
+def splits(items: Sequence[Any], num_chunks: int, keep_empty: bool = False) -> list[list[Any]]:
     # np.array_split will return empty elements if required
     if not keep_empty:
         num_chunks = min(num_chunks, len(items))

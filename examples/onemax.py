@@ -28,12 +28,13 @@ https://github.com/DEAP/deap/blob/master/examples/ga/onemax_numpy.py
 """
 
 import functools
+
 import numpy as np
+
 from ruck import *
 
 
 class OneMaxModule(EaModule):
-
     def __init__(
         self,
         population_size: int = 300,
@@ -41,7 +42,7 @@ class OneMaxModule(EaModule):
         member_size: int = 100,
         p_mate: float = 0.5,
         p_mutate: float = 0.5,
-        ea_mode: str = 'simple'
+        ea_mode: str = "simple",
     ):
         # save the arguments to the .hparams property. values are taken from the
         # local scope so modifications can be captured if the call to this is delayed.
@@ -61,17 +62,14 @@ class OneMaxModule(EaModule):
         return map(np.sum, values)
 
     def gen_starting_values(self) -> Population:
-        return [
-            np.random.random(self.hparams.member_size) < 0.5
-            for i in range(self.hparams.population_size)
-        ]
+        return [np.random.random(self.hparams.member_size) < 0.5 for i in range(self.hparams.population_size)]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # create and train the population
     module = OneMaxModule(population_size=300, member_size=100)
     pop, logbook, halloffame = Trainer(generations=40, progress=True).fit(module)
 
-    print('initial stats:', logbook[0])
-    print('final stats:', logbook[-1])
-    print('best member:', halloffame.members[0])
+    print("initial stats:", logbook[0])
+    print("final stats:", logbook[-1])
+    print("best member:", halloffame.members[0])

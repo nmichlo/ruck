@@ -1,0 +1,20 @@
+name: test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  # base deps only -- proves the package works without numba or the example deps
+  defaults:
+    uses: nmichlo/.github/.github/workflows/pytest.yaml@main
+    with:
+      python-versions: '["3.12", "3.13"]'
+      install-extras: "test"
+
+  extras:
+    uses: nmichlo/.github/.github/workflows/pytest.yaml@main
+    with:
+      python-versions: '["3.12", "3.13"]'
+      install-extras: "jit,examples,test"

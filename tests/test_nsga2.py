@@ -27,46 +27,45 @@ import numpy as np
 import pytest
 
 from ruck import Member
-from ruck.functional import select_nsga2 as select_nsga2_ruck
 from ruck.external.deap import select_nsga2 as select_nsga2_deap
-
+from ruck.functional import select_nsga2 as select_nsga2_ruck
 
 # ========================================================================= #
 # TEST                                                                      #
 # ========================================================================= #
 
 
-@pytest.mark.parametrize(['population_size', 'sel_num', 'fitness_size', 'weights'], [
-    # basic
-    (0, 0, 2, (1, 1)),
-    (1, 0, 2, (1, 1)),
-    # (0, 1, 2, (1, 1)),
-    (1, 1, 2, (1, 1)),
-    # larger
-    (10, 0,  2, (1, 1)),
-    (10, 1,  2, (1, 1)),
-    (10, 5,  2, (1, 1)),
-    (10, 9,  2, (1, 1)),
-    (10, 10, 2, (1, 1)),
-    # (10, 11, 2, (1, 1)),
-    # (10, 20, 2, (1, 1)),
-    # weights
-    (10, 5, 2, ( 1,  1)),
-    (10, 5, 2, (-1,  1)),
-    (10, 5, 2, ( 1, -1)),
-    (10, 5, 2, (-1, -1)),
-    (10, 5, 3, (1, -1, 1)),
-    (10, 5, 4, (1, -1, 1, -1)),
-    (10, 5, 1, (1,)),
-    (10, 5, 1, (-1,)),
-])
+@pytest.mark.parametrize(
+    ["population_size", "sel_num", "fitness_size", "weights"],
+    [
+        # basic
+        (0, 0, 2, (1, 1)),
+        (1, 0, 2, (1, 1)),
+        # (0, 1, 2, (1, 1)),
+        (1, 1, 2, (1, 1)),
+        # larger
+        (10, 0, 2, (1, 1)),
+        (10, 1, 2, (1, 1)),
+        (10, 5, 2, (1, 1)),
+        (10, 9, 2, (1, 1)),
+        (10, 10, 2, (1, 1)),
+        # (10, 11, 2, (1, 1)),
+        # (10, 20, 2, (1, 1)),
+        # weights
+        (10, 5, 2, (1, 1)),
+        (10, 5, 2, (-1, 1)),
+        (10, 5, 2, (1, -1)),
+        (10, 5, 2, (-1, -1)),
+        (10, 5, 3, (1, -1, 1)),
+        (10, 5, 4, (1, -1, 1, -1)),
+        (10, 5, 1, (1,)),
+        (10, 5, 1, (-1,)),
+    ],
+)
 def test(population_size, sel_num, fitness_size, weights):
     np.random.seed(42)
     # generate population
-    population = [
-        Member(i, fitness=tuple(np.random.randint(5, size=fitness_size)))
-        for i in range(population_size)
-    ]
+    population = [Member(i, fitness=tuple(np.random.randint(5, size=fitness_size))) for i in range(population_size)]
     # select
     sel_deap = select_nsga2_deap(population, sel_num, weights)
     sel_ruck = select_nsga2_ruck(population, sel_num, weights)

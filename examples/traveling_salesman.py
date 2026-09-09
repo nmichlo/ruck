@@ -23,13 +23,14 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 import random
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+
 from ruck import *
 
 
 class TravelingSalesmanModule(EaModule):
-
     def __init__(self, points, num_individuals: int = 128, closed_path=False):
         self.num_individuals = int(num_individuals)
         self.points = np.array(points)
@@ -84,7 +85,7 @@ class TravelingSalesmanModule(EaModule):
         return xs, ys
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # determinism
     random.seed(42)
     np.random.seed(42)

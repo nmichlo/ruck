@@ -23,16 +23,14 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 import warnings
-from typing import Optional
-from typing import Sequence
+from collections.abc import Sequence
 
 from ruck.functional import check_selection
-
 
 try:
     import deap
 except ImportError as e:
-    warnings.warn('failed to import deap, please install it: $ pip install deap')
+    warnings.warn("failed to import deap, please install it: $ pip install deap")
     raise e
 
 
@@ -50,13 +48,15 @@ except ImportError as e:
 
 
 @check_selection
-def select_nsga2(population, num_offspring: int, weights: Optional[Sequence[float]] = None):
+def select_nsga2(population, num_offspring: int, weights: Sequence[float] | None = None):
     """
     This is hacky... ruck doesn't yet have NSGA2
     support, but we will add it in future!
     """
     # this function has been deprecated
-    warnings.warn('`ruck.external.deap.select_nsga2` has been deprecated in favour of `ruck.functional.select_nsga2`. `ruck.external.deap` will be removed in version v0.3.0')
+    warnings.warn(
+        "`ruck.external.deap.select_nsga2` has been deprecated in favour of `ruck.functional.select_nsga2`. `ruck.external.deap` will be removed in version v0.3.0"
+    )
     # checks
     if num_offspring == 0:
         return []
@@ -64,17 +64,21 @@ def select_nsga2(population, num_offspring: int, weights: Optional[Sequence[floa
     f = population[0].fitness
     # check fitness
     try:
-        for _ in f: break
+        for _ in f:
+            break
     except:
-        raise ValueError('fitness values do not have multiple values!')
+        raise ValueError("fitness values do not have multiple values!")
     # get weights
     if weights is None:
         weights = tuple(1.0 for _ in f)
     # get deap
-    from deap import creator, tools, base
+    from deap import base
+    from deap import creator
+    from deap import tools
+
     # initialize creator
-    creator.create('_SelIdxFitness', base.Fitness, weights=weights)
-    creator.create('_SelIdxIndividual', int, fitness=creator._SelIdxFitness)
+    creator.create("_SelIdxFitness", base.Fitness, weights=weights)
+    creator.create("_SelIdxIndividual", int, fitness=creator._SelIdxFitness)
     # convert to deap population
     idx_individuals = []
     for i, m in enumerate(population):

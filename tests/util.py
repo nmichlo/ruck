@@ -27,7 +27,6 @@ import os
 import sys
 from contextlib import contextmanager
 
-
 # ========================================================================= #
 # TEST UTILS                                                                #
 # ========================================================================= #
@@ -36,7 +35,7 @@ from contextlib import contextmanager
 @contextmanager
 def no_stdout():
     old_stdout = sys.stdout
-    sys.stdout = open(os.devnull, 'w')
+    sys.stdout = open(os.devnull, "w")
     yield
     sys.stdout = old_stdout
 
@@ -44,7 +43,7 @@ def no_stdout():
 @contextmanager
 def no_stderr():
     old_stderr = sys.stderr
-    sys.stderr = open(os.devnull, 'w')
+    sys.stderr = open(os.devnull, "w")
     yield
     sys.stderr = old_stderr
 

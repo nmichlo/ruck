@@ -23,22 +23,20 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 from argparse import Namespace
-from typing import Optional
-from typing import Sequence
-
+from collections.abc import Sequence
 
 # ========================================================================= #
 # Hyper Parameters                                                          #
 # ========================================================================= #
 
 
-class HParamsMixin(object):
-
+class HParamsMixin:
     __hparams = None
 
-    def save_hyperparameters(self, ignore: Optional[Sequence[str]] = None, include: Optional[Sequence[str]] = None):
+    def save_hyperparameters(self, ignore: Sequence[str] | None = None, include: Sequence[str] | None = None):
         import inspect
         import warnings
+
         # get ignored values
         ignored = set() if (ignore is None) else set(ignore)
         included = set() if (include is None) else set(include)
@@ -50,19 +48,22 @@ class HParamsMixin(object):
         # get values
         (self_param, *params) = params.parameters.items()
         # check that self is correct & skip it
-        assert self_param[0] == 'self'
+        assert self_param[0] == "self"
         assert locals[self_param[0]] is self
         # get other values
         values = {}
         for k, v in params:
-            if k in ignored: continue
-            if v.kind == v.VAR_KEYWORD: warnings.warn('variable keywords argument saved, consider converting to explicit arguments.')
-            if v.kind == v.VAR_POSITIONAL: warnings.warn('variable positional argument saved, consider converting to explicit named arguments.')
+            if k in ignored:
+                continue
+            if v.kind == v.VAR_KEYWORD:
+                warnings.warn("variable keywords argument saved, consider converting to explicit arguments.")
+            if v.kind == v.VAR_POSITIONAL:
+                warnings.warn("variable positional argument saved, consider converting to explicit named arguments.")
             values[k] = locals[k]
         # get extra values
         for k in included:
-            assert k != 'self'
-            assert k not in values, 'k has already been included'
+            assert k != "self"
+            assert k not in values, "k has already been included"
             values[k] = locals[k]
         # done!
         self.__hparams = Namespace(**values)
