@@ -104,3 +104,7 @@ python-version = "3.12"
 minversion = "8.0"
 testpaths = ["tests", "ruck"]
 python_files = ["test_*.py", "__test__*.py"]
+# `tests/test_ruck.py` imports the top-level `examples` package. the `pytest`
+# console script does not put the repo root on `sys.path`, so without this the
+# whole suite aborts during collection. better than mutating sys.path in a conftest.
+pythonpath = ["."]

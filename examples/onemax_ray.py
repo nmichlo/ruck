@@ -38,6 +38,13 @@ from ruck import *
 from ruck.external.ray import *
 
 
+# numpy 2 wraps `np.mean` in a `_ArrayFunctionDispatcher`, which is neither a
+# function nor a class -- `ray.remote` rejects it outright. a thin wrapper gives
+# ray the plain function it checks for.
+def _mean(values: np.ndarray) -> np.floating:
+    return np.mean(values)
+
+
 class OneMaxRayModule(EaModule):
     def __init__(
         self,
@@ -69,7 +76,7 @@ class OneMaxRayModule(EaModule):
         # multiple calls to ray.remote. We use ray.remote instead of
         # ray_remote_put like above because we want the returned values
         # not object refs to those values.
-        self._ray_eval = ray.remote(np.mean).remote
+        self._ray_eval = ray.remote(_mean).remote
 
     def evaluate_values(self, values):
         # values is a list of `ray.ObjectRef`s not `np.ndarray`s

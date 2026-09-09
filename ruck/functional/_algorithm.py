@@ -38,6 +38,19 @@ from ruck.util._iter import chained
 # ========================================================================= #
 
 
+def _shuffled[T](items: list[T]) -> list[T]:
+    """Shuffle via an index permutation, drawing the same values as `np.random.shuffle`.
+
+    numpy's docstring accepts a `MutableSequence`, but its stub narrows the
+    parameter to `ArrayLike`, which a list of arbitrary objects is not. Permuting
+    an index array instead is stub-clean and yields the identical permutation for
+    a given seed, so the RNG stream is unchanged.
+    """
+    idxs = np.arange(len(items))
+    np.random.shuffle(idxs)
+    return [items[i] for i in idxs]
+
+
 def apply_mate[T](
     population: Population[T],
     mate_fn: MateFnHint[T],
@@ -45,8 +58,7 @@ def apply_mate[T](
     map_fn=map,
 ) -> Population[T]:
     # randomize order so we have randomized pairs
-    offspring = list(population)
-    random.shuffle(offspring)
+    offspring = _shuffled(list(population))
     # select random items
     idxs, pairs = [], []
     for i, (m0, m1) in enumerate(zip(offspring[0::2], offspring[1::2])):
@@ -167,10 +179,15 @@ def apply_mate_or_mutate_or_reproduce[T](
         lambda pair: mate_fn(pair[0], pair[1]), ((m0.value, m1.value) for m0, m1 in offspring_pairs_mutate)
     )
     # combine everything & shuffle
-    offspring = chained(
-        [(Member(v) for v in offspring_mate), (Member(v0) for v0, v1 in offspring_pairs_mutate), offspring_reproduce]
+    offspring = _shuffled(
+        chained(
+            [
+                (Member(v) for v in offspring_mate),
+                (Member(v0) for v0, v1 in offspring_pairs_mutate),
+                offspring_reproduce,
+            ]
+        )
     )
-    random.shuffle(offspring)
     # done!
     assert len(offspring) == num_offspring
     return offspring
