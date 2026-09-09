@@ -6,15 +6,12 @@ on:
     branches: [main]
 
 jobs:
-  # base deps only -- proves the package works without numba or the example deps
-  defaults:
-    uses: nmichlo/.github/.github/workflows/pytest.yaml@main
-    with:
-      python-versions: '["3.12", "3.13"]'
-      install-extras: "test"
-
-  extras:
+  # one job only: `test_nsga2.py` needs deap and `test_ruck.py` needs ray, both from
+  # the `examples` extra, and ruck has no marker convention to split them out. a
+  # base-deps job would have nothing left to run.
+  test:
     uses: nmichlo/.github/.github/workflows/pytest.yaml@main
     with:
       python-versions: '["3.12", "3.13"]'
       install-extras: "jit,examples,test"
+      pytest-args: "--color=yes --verbose"

@@ -80,10 +80,16 @@ def arggroup(
         numbers, return_index=True, return_inverse=True, return_counts=True, axis=axis
     )
     # same as [ary[:idx[0]], ary[idx[0]:idx[1]], ..., ary[idx[-2]:idx[-1]], ary[idx[-1]:]]
-    groups = np.split(ary=np.argsort(inverse, axis=0), indices_or_sections=np.cumsum(counts)[:-1], axis=0)
+    # `kind="stable"`: numpy's default quicksort is NOT stable, so tied entries came
+    # out in an order that varied by platform -- the same input grouped differently on
+    # arm64 and x86_64. callers compare these groups against python's `sorted`, which
+    # is stable, so anything else is a latent nondeterminism bug.
+    groups = np.split(
+        ary=np.argsort(inverse, axis=0, kind="stable"), indices_or_sections=np.cumsum(counts)[:-1], axis=0
+    )
     # maintain original order
     if keep_order:
-        add_order = index.argsort()  # the order that items were added in
+        add_order = index.argsort(kind="stable")  # the order that items were added in
         groups = [groups[i] for i in add_order]
     # return values
     if not return_unique:
