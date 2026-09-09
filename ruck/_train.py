@@ -25,8 +25,6 @@
 import itertools
 import logging
 from collections.abc import Iterator
-from typing import Generic
-from typing import TypeVar
 
 from tqdm import tqdm
 
@@ -39,15 +37,12 @@ from ruck._module import EaModule
 log = logging.getLogger(__name__)
 
 
-T = TypeVar("T")
-
-
 # ========================================================================= #
 # Utils Trainer                                                             #
 # ========================================================================= #
 
 
-def _check_population(population: Population[T], required_size: int) -> Population[T]:
+def _check_population[T](population: Population[T], required_size: int) -> Population[T]:
     assert len(population) > 0, "population must not be empty"
     assert len(population) == required_size, "population size is invalid"
     assert all(isinstance(member, Member) for member in population), "items in population are not members"
@@ -61,7 +56,7 @@ def _check_population(population: Population[T], required_size: int) -> Populati
 # ========================================================================= #
 
 
-def _evaluate_unevaluated(module: EaModule[T], members: Population[T]) -> int:
+def _evaluate_unevaluated[T](module: EaModule[T], members: Population[T]) -> int:
     # get unevaluated members
     unevaluated = [m for m in members if not m.is_evaluated]
     # get fitness values
@@ -79,7 +74,7 @@ def _evaluate_unevaluated(module: EaModule[T], members: Population[T]) -> int:
 # ========================================================================= #
 
 
-def yield_population_steps(module: EaModule[T]) -> Iterator[tuple[int, Population[T], Population[T], int]]:
+def yield_population_steps[T](module: EaModule[T]) -> Iterator[tuple[int, Population[T], Population[T], int]]:
     # 1. create population
     population = [Member(m) for m in module.gen_starting_values()]
     population_size = len(population)
@@ -110,7 +105,7 @@ def yield_population_steps(module: EaModule[T]) -> Iterator[tuple[int, Populatio
 # ========================================================================= #
 
 
-class Trainer(Generic[T]):
+class Trainer[T]:
     def __init__(
         self,
         generations: int = 100,

@@ -23,13 +23,11 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 from collections.abc import Sequence
-from typing import Any
-from typing import Generic
-from typing import TypeVar
 
 import numpy as np
 
 from ruck._history import StatsGroup
+from ruck._member import Fitness
 from ruck._member import Population
 from ruck.util._args import HParamsMixin
 
@@ -38,13 +36,10 @@ from ruck.util._args import HParamsMixin
 # ========================================================================= #
 
 
-T = TypeVar("T")
-
-
-class EaModule(Generic[T], HParamsMixin):
+class EaModule[T](HParamsMixin):
     # OVERRIDABLE DEFAULTS
 
-    def get_stats_groups(self) -> dict[str, StatsGroup[T, Any]]:
+    def get_stats_groups(self) -> dict[str, StatsGroup[Population[T], list[Fitness]]]:
         # default stats groups
         return {
             "fit": StatsGroup(

@@ -43,7 +43,10 @@ class HParamsMixin:
         assert all(str.isidentifier(k) for k in ignored)
         assert all(str.isidentifier(k) for k in included)
         # get function params & signature
-        locals = inspect.currentframe().f_back.f_locals
+        frame = inspect.currentframe()
+        assert frame is not None
+        assert frame.f_back is not None
+        locals = frame.f_back.f_locals
         params = inspect.signature(self.__class__.__init__)
         # get values
         (self_param, *params) = params.parameters.items()

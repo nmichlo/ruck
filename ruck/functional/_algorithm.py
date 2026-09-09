@@ -23,7 +23,6 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 import random
-from typing import TypeVar
 
 import numpy as np
 
@@ -35,19 +34,11 @@ from ruck.functional._select import SelectFnHint
 from ruck.util._iter import chained
 
 # ========================================================================= #
-# Helper                                                                    #
-# ========================================================================= #
-
-
-T = TypeVar("T")
-
-
-# ========================================================================= #
 # Function Wrappers                                                         #
 # ========================================================================= #
 
 
-def apply_mate(
+def apply_mate[T](
     population: Population[T],
     mate_fn: MateFnHint[T],
     p: float = 0.5,
@@ -55,7 +46,7 @@ def apply_mate(
 ) -> Population[T]:
     # randomize order so we have randomized pairs
     offspring = list(population)
-    np.random.shuffle(offspring)
+    random.shuffle(offspring)
     # select random items
     idxs, pairs = [], []
     for i, (m0, m1) in enumerate(zip(offspring[0::2], offspring[1::2])):
@@ -95,7 +86,7 @@ def apply_mutate(
     return offspring
 
 
-def apply_mate_and_mutate(
+def apply_mate_and_mutate[T](
     population: Population[T],
     mate_fn: MateFnHint[T],
     mutate_fn: MutateFnHint[T],
@@ -117,7 +108,7 @@ def apply_mate_and_mutate(
     return offspring
 
 
-def _get_generate_member_fn(
+def _get_generate_member_fn[T](
     mate_fn: MateFnHint[T],
     mutate_fn: MutateFnHint[T],
     p_mate: float = 0.5,
@@ -126,6 +117,7 @@ def _get_generate_member_fn(
     def _generate_member(a_b_r: tuple[Member[T], Member[T] | None, float]) -> Member[T]:
         ma, mb, r = a_b_r
         if r < p_mate:
+            assert mb is not None, "mb must be provided when mating"
             return Member(
                 mate_fn(ma.value, mb.value)[0]
             )  # Apply crossover | only take first item | mb is only defined for this case
@@ -137,7 +129,7 @@ def _get_generate_member_fn(
     return _generate_member
 
 
-def apply_mate_or_mutate_or_reproduce(
+def apply_mate_or_mutate_or_reproduce[T](
     population: Population[T],
     num_offspring: int,  # lambda_
     mate_fn: MateFnHint[T],
@@ -178,7 +170,7 @@ def apply_mate_or_mutate_or_reproduce(
     offspring = chained(
         [(Member(v) for v in offspring_mate), (Member(v0) for v0, v1 in offspring_pairs_mutate), offspring_reproduce]
     )
-    np.random.shuffle(offspring)
+    random.shuffle(offspring)
     # done!
     assert len(offspring) == num_offspring
     return offspring
@@ -189,11 +181,11 @@ def apply_mate_or_mutate_or_reproduce(
 # ========================================================================= #
 
 
-def make_ea(
+def make_ea[T](
     mate_fn: MateFnHint[T],
     mutate_fn: MutateFnHint[T],
     select_fn: SelectFnHint[T],
-    offspring_num: int = None,  # lambda
+    offspring_num: int | None = None,  # lambda
     mode: str = "simple",
     p_mate: float = 0.5,
     p_mutate: float = 0.5,

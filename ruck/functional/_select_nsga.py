@@ -100,7 +100,9 @@ def select_nsga2(population: Population, num: int, weights: Sequence[float] | No
 # ========================================================================= #
 
 
-def argsort_non_dominated(fitnesses: np.array, at_least_n: int = None, first_front_only=False) -> list[list[int]]:
+def argsort_non_dominated(
+    fitnesses: np.ndarray, at_least_n: int | None = None, first_front_only: bool = False
+) -> list[list[int]]:
     """
     Perform non-dominated arg-sorting on the elements in the array
     - The indices are contained in "fonts". Each front is a list of points

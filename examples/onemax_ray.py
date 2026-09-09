@@ -42,7 +42,8 @@ class OneMaxRayModule(EaModule):
     def __init__(
         self,
         population_size: int = 300,
-        offspring_num: int = None,  # offspring_num (lambda) is automatically set to population_size (mu) when `None`
+        offspring_num: int
+        | None = None,  # offspring_num (lambda) is automatically set to population_size (mu) when `None`
         member_size: int = 100,
         p_mate: float = 0.5,
         p_mutate: float = 0.5,

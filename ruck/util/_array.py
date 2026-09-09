@@ -23,29 +23,50 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 
-from collections.abc import Sequence
+from typing import Literal
+from typing import overload
 
 import numpy as np
+import numpy.typing as npt
 
 # ========================================================================= #
 # Array Util                                                                #
 # ========================================================================= #
 
 
+@overload
 def arggroup(
-    numbers: Sequence | np.ndarray,
-    axis=0,
-    keep_order=True,
+    numbers: npt.ArrayLike,
+    axis: int = 0,
+    keep_order: bool = True,
+) -> list[np.ndarray]: ...
+
+
+@overload
+def arggroup(
+    numbers: npt.ArrayLike,
+    axis: int = 0,
+    keep_order: bool = True,
+    *,
+    return_unique: Literal[True],
+    return_counts: Literal[True],
+) -> tuple[list[np.ndarray], np.ndarray, np.ndarray]: ...
+
+
+def arggroup(
+    numbers: npt.ArrayLike,
+    axis: int = 0,
+    keep_order: bool = True,
     return_unique: bool = False,
-    return_index: bool = False,
     return_counts: bool = False,
-):
+) -> list[np.ndarray] | tuple[list[np.ndarray], np.ndarray, np.ndarray]:
     """
     Group all the elements of the array.
     - The returned groups contain the indices of
       the original position in the arrays.
+    - `return_unique` and `return_counts` must be requested together.
     """
-
+    assert return_unique == return_counts, "`return_unique` and `return_counts` must be requested together"
     # convert
     if not isinstance(numbers, np.ndarray):
         numbers = np.array(numbers)
@@ -65,17 +86,11 @@ def arggroup(
         add_order = index.argsort()  # the order that items were added in
         groups = [groups[i] for i in add_order]
     # return values
-    results = [groups]
-    if return_unique:
-        results.append(unique[add_order] if keep_order else unique)
-    if return_index:
-        results.append(index[add_order] if keep_order else index)
-    if return_counts:
-        results.append(counts[add_order] if keep_order else counts)
-    # unpack
-    if len(results) == 1:
-        return results[0]
-    return results
+    if not return_unique:
+        return groups
+    unique_out = unique[add_order] if keep_order else unique
+    counts_out = counts[add_order] if keep_order else counts
+    return groups, unique_out, counts_out
 
 
 # ========================================================================= #

@@ -22,16 +22,15 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
+import importlib.util
 import warnings
 from collections.abc import Sequence
 
 from ruck.functional import check_selection
 
-try:
-    import deap
-except ImportError as e:
+if importlib.util.find_spec("deap") is None:
     warnings.warn("failed to import deap, please install it: $ pip install deap")
-    raise e
+    raise ImportError("deap is not installed")
 
 
 # ========================================================================= #
@@ -66,8 +65,8 @@ def select_nsga2(population, num_offspring: int, weights: Sequence[float] | None
     try:
         for _ in f:
             break
-    except:
-        raise ValueError("fitness values do not have multiple values!")
+    except TypeError:
+        raise ValueError("fitness values do not have multiple values!") from None
     # get weights
     if weights is None:
         weights = tuple(1.0 for _ in f)
@@ -77,12 +76,18 @@ def select_nsga2(population, num_offspring: int, weights: Sequence[float] | None
     from deap import tools
 
     # initialize creator
+    # - `creator.create` registers new classes onto the `deap.creator` module dynamically,
+    #   so they can only be looked up with `getattr`, not accessed as static attributes.
     creator.create("_SelIdxFitness", base.Fitness, weights=weights)
-    creator.create("_SelIdxIndividual", int, fitness=creator._SelIdxFitness)
+    sel_idx_fitness = getattr(creator, "_SelIdxFitness", None)
+    assert sel_idx_fitness is not None
+    creator.create("_SelIdxIndividual", int, fitness=sel_idx_fitness)
+    sel_idx_individual = getattr(creator, "_SelIdxIndividual", None)
+    assert sel_idx_individual is not None
     # convert to deap population
     idx_individuals = []
     for i, m in enumerate(population):
-        ind = creator._SelIdxIndividual(i)
+        ind = sel_idx_individual(i)
         ind.fitness.values = m.fitness
         idx_individuals.append(ind)
     # run nsga2

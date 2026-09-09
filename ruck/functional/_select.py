@@ -25,8 +25,9 @@
 import random
 from collections.abc import Callable
 from functools import wraps
-from typing import TypeVar
 
+from ruck._member import Fitness
+from ruck._member import Member
 from ruck._member import Population
 
 # ========================================================================= #
@@ -34,12 +35,10 @@ from ruck._member import Population
 # ========================================================================= #
 
 
-F = TypeVar("F")
-T = TypeVar("T")
-SelectFnHint = Callable[[Population[T], int], Population[T]]
+type SelectFnHint[T] = Callable[[Population[T], int], Population[T]]
 
 
-def check_selection(fn: F) -> F:
+def check_selection[T](fn: Callable[..., Population[T]]) -> Callable[..., Population[T]]:
     @wraps(fn)
     def wrapper(population: Population[T], num: int, *args, **kwargs) -> Population[T]:
         selected = fn(population, num, *args, **kwargs)
@@ -58,23 +57,25 @@ def check_selection(fn: F) -> F:
 
 
 @check_selection
-def select_best(population: Population[T], num: int) -> Population[T]:
+def select_best[T](population: Population[T], num: int) -> Population[T]:
     return sorted(population, key=lambda m: m.fitness, reverse=True)[:num]
 
 
 @check_selection
-def select_worst(population: Population[T], num: int) -> Population[T]:
+def select_worst[T](population: Population[T], num: int) -> Population[T]:
     return sorted(population, key=lambda m: m.fitness, reverse=False)[:num]
 
 
 @check_selection
-def select_random(population: Population[T], num: int) -> Population[T]:
+def select_random[T](population: Population[T], num: int) -> Population[T]:
     return random.sample(population, k=num)
 
 
 @check_selection
-def select_tournament(population: Population[T], num: int, k: int = 3) -> Population[T]:
-    key = lambda m: m.fitness
+def select_tournament[T](population: Population[T], num: int, k: int = 3) -> Population[T]:
+    def key(m: Member[T]) -> Fitness:
+        return m.fitness
+
     return [max(random.sample(population, k=k), key=key) for _ in range(num)]
 
 

@@ -24,7 +24,6 @@
 
 from collections.abc import Callable
 from functools import wraps
-from typing import TypeVar
 
 import numpy as np
 
@@ -33,14 +32,12 @@ import numpy as np
 # ========================================================================= #
 
 
-F = TypeVar("F")
-T = TypeVar("T")
-MutateFnHint = Callable[[T], T]
+type MutateFnHint[T] = Callable[[T], T]
 
 
-def check_mutation(fn: F) -> F:
+def check_mutation[T](fn: Callable[..., T]) -> Callable[..., T]:
     @wraps(fn)
-    def wrapper(value: T, *args, **kwargs):
+    def wrapper(value: T, *args, **kwargs) -> T:
         mutated = fn(value, *args, **kwargs)
         assert mutated is not value, f"Mutate function: {fn} should return a new value"
         return mutated

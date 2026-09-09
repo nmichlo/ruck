@@ -25,7 +25,6 @@
 import functools
 from collections.abc import Callable
 from collections.abc import Sequence
-from typing import Any
 
 try:
     import ray
@@ -40,7 +39,7 @@ except ImportError as e:
 # ========================================================================= #
 
 
-def ray_map(remote_fn: Callable[[Any], ray.ObjectRef], items: Sequence[Any]) -> list[Any]:
+def ray_map[T](remote_fn: Callable[[T], ray.ObjectRef], items: Sequence[T]) -> list[T]:
     """
     A simple ray alternative to `map`, input function should be
     a remote function that returns an object reference / future value
@@ -87,11 +86,11 @@ def ray_remote_put(fn=None, iter_results: bool = False, **ray_remote_kwargs):
 
         # ray remote
         if ray_remote_kwargs:
-            inner = ray.remote(**ray_remote_kwargs)(inner)
+            remote_inner = ray.remote(**ray_remote_kwargs)(inner)
         else:
-            inner = ray.remote(inner)
+            remote_inner = ray.remote(inner)
         # done!
-        return inner
+        return remote_inner
 
     # handle correct case
     if fn is None:

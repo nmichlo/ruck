@@ -25,23 +25,19 @@
 import dataclasses
 import heapq
 from collections.abc import Callable
-from typing import Any
-from typing import Generic
-from typing import TypeVar
+from typing import Protocol
 
+from ruck._member import Fitness
+from ruck._member import Member
 from ruck._member import Population
-
-T = TypeVar("T")
-V = TypeVar("V")
-
 
 # ========================================================================= #
 # Type Hints                                                                #
 # ========================================================================= #
 
 
-ValueFnHint = Callable[[T], V]
-StatFnHint = Callable[[V], Any]
+type ValueFnHint[T, V] = Callable[[T], V]
+type StatFnHint[V] = Callable[[V], object]
 
 
 # ========================================================================= #
@@ -49,8 +45,21 @@ StatFnHint = Callable[[V], Any]
 # ========================================================================= #
 
 
-class StatsGroup(Generic[T, V]):
-    def __init__(self, value_fn: ValueFnHint[T, V] = None, **stats_fns: StatFnHint[V]):
+class StatsGroupLike[T](Protocol):
+    """
+    The subset of `StatsGroup`'s interface that `Logbook` relies on.
+    - Deliberately hides the `StatsGroup`'s second type parameter (the
+      intermediate, transformed value type), which callers never see.
+    """
+
+    @property
+    def keys(self) -> list[str]: ...
+
+    def compute(self, value: T) -> dict[str, object]: ...
+
+
+class StatsGroup[T, V]:
+    def __init__(self, value_fn: ValueFnHint[T, V], **stats_fns: StatFnHint[V]):
         assert all(str.isidentifier(key) for key in stats_fns.keys())
         assert stats_fns
         self._value_fn = value_fn
@@ -60,14 +69,13 @@ class StatsGroup(Generic[T, V]):
     def keys(self) -> list[str]:
         return list(self._stats_fns.keys())
 
-    def compute(self, value: T) -> dict[str, Any]:
-        if self._value_fn is not None:
-            value = self._value_fn(value)
-        return {key: stat_fn(value) for key, stat_fn in self._stats_fns.items()}
+    def compute(self, value: T) -> dict[str, object]:
+        transformed = self._value_fn(value)
+        return {key: stat_fn(transformed) for key, stat_fn in self._stats_fns.items()}
 
 
-class Logbook(Generic[T]):
-    def __init__(self, *external_keys: str, **stats_groups: StatsGroup[T, Any]):
+class Logbook[T]:
+    def __init__(self, *external_keys: str, **stats_groups: StatsGroupLike[Population[T]]):
         self._all_ordered_keys = []
         self._external_keys = []
         self._stats_groups = {}
@@ -97,7 +105,7 @@ class Logbook(Generic[T]):
         self._all_ordered_keys.append(name)
         return self
 
-    def register_stats_group(self, name: str, stats_group: StatsGroup[T, Any]):
+    def register_stats_group(self, name: str, stats_group: StatsGroupLike[Population[T]]):
         self._assert_key_available(self._assert_key_available(name))
         assert isinstance(stats_group, StatsGroup)
         assert stats_group not in self._stats_groups.values()
@@ -126,7 +134,7 @@ class Logbook(Generic[T]):
         return dict(record)
 
     @property
-    def history(self) -> list[dict[str, Any]]:
+    def history(self) -> list[dict[str, object]]:
         return list(self._history)
 
     def __getitem__(self, idx: int):
@@ -147,9 +155,9 @@ class Logbook(Generic[T]):
 
 
 @dataclasses.dataclass(order=True)
-class HallOfFameItem:
-    fitness: float
-    member: Any = dataclasses.field(compare=False)
+class HallOfFameItem[T]:
+    fitness: Fitness
+    member: Member[T] = dataclasses.field(compare=False)
 
 
 class HallOfFameFrozenError(Exception):
@@ -160,23 +168,23 @@ class HallOfFameNotFrozenError(Exception):
     pass
 
 
-class HallOfFame(Generic[T]):
+class HallOfFame[T]:
     def __init__(self, n_best: int = 5, maximize: bool = True):
         self._maximize = maximize
         assert maximize
         self._n_best = n_best
-        # update values
-        self._heap = []  # element 0 is always the smallest
-        self._scores = {}
-        # frozen values
+        # update values, cleared once frozen
+        self._heap: list[HallOfFameItem[T]] | None = []  # element 0 is always the smallest
+        self._scores: dict[Fitness, HallOfFameItem[T]] | None = {}
+        # frozen values, only set once frozen
         self._frozen = False
-        self._frozen_members = None
-        self._frozen_values = None
-        self._frozen_scores = None
+        self._frozen_members: Population[T] | None = None
 
     def update(self, population: Population[T]):
         if self.is_frozen:
             raise HallOfFameFrozenError("The hall of fame has been frozen, no more members can be added!")
+        assert self._heap is not None
+        assert self._scores is not None
         # get potential best in population
         best = sorted(population, key=lambda m: m.fitness, reverse=True)[: self._n_best]
         # add the best
@@ -195,9 +203,10 @@ class HallOfFame(Generic[T]):
                 removed = heapq.heappushpop(self._heap, item)
                 del self._scores[removed.fitness]
 
-    def freeze(self) -> "HallOfFame":
+    def freeze(self) -> "HallOfFame[T]":
         if self.is_frozen:
             raise HallOfFameFrozenError("The hall of fame has already been frozen, cannot freeze again!")
+        assert self._heap is not None
         # freeze
         self._frozen = True
         self._frozen_members = [m.member for m in sorted(self._heap, reverse=True)]  # 0 is best, -1 is worst
@@ -212,6 +221,7 @@ class HallOfFame(Generic[T]):
 
     @property
     def members(self) -> Population[T]:
+        assert self._frozen_members is not None
         return list(self._frozen_members)
 
     def __getitem__(self, idx: int):
@@ -220,6 +230,7 @@ class HallOfFame(Generic[T]):
                 "The hall of fame has not yet been frozen by a completed training run, cannot access members!"
             )
         assert isinstance(idx, int)
+        assert self._frozen_members is not None
         return self._frozen_members[idx]
 
     def __len__(self):
@@ -227,6 +238,7 @@ class HallOfFame(Generic[T]):
             raise HallOfFameNotFrozenError(
                 "The hall of fame has not yet been frozen by a completed training run, cannot access length!"
             )
+        assert self._frozen_members is not None
         return len(self._frozen_members)
 
     def __iter__(self):

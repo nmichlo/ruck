@@ -24,9 +24,6 @@
 
 import re
 import warnings
-from typing import Generic
-from typing import TypeVar
-from typing import Union
 
 # ========================================================================= #
 # Members                                                                   #
@@ -41,17 +38,16 @@ class MemberAlreadyEvaluatedError(Exception):
     pass
 
 
-T = TypeVar("T")
-Fitness = Union[float, tuple[float, ...]]
+Fitness = float | tuple[float, ...]
 
 
 _RE_WHITESPACE = re.compile(r"\s\s+")
 
 
-class Member(Generic[T]):
-    def __init__(self, value: T, fitness: Fitness = None):
+class Member[T]:
+    def __init__(self, value: T, fitness: Fitness | None = None):
         self._value = value
-        self._fitness = None
+        self._fitness: Fitness | None = None
         # set fitness
         if fitness is not None:
             self.fitness = fitness
@@ -77,7 +73,7 @@ class Member(Generic[T]):
 
     @property
     def fitness(self) -> Fitness:
-        if not self.is_evaluated:
+        if self._fitness is None:
             raise MemberIsNotEvaluatedError("The member has not been evaluated, the fitness has not yet been set.")
         return self._fitness
 
@@ -119,7 +115,7 @@ class Member(Generic[T]):
 # ========================================================================= #
 
 
-Population = list[Member[T]]
+type Population[T] = list[Member[T]]
 
 
 # ========================================================================= #
