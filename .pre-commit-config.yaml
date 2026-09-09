@@ -1,0 +1,34 @@
+# tool config lives in `pyproject.toml` (the `[tool.ruff]` and `[tool.ty]` sections).
+# CI runs this file verbatim, see `.github/workflows/lint.yml`.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - { id: trailing-whitespace }
+      - { id: end-of-file-fixer }
+      - { id: check-yaml }
+      - { id: check-added-large-files, args: ["--maxkb=500"] }
+      - { id: check-case-conflict }
+      - { id: detect-private-key }
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.6
+    hooks:
+      - id: ruff-check
+        args: ["--fix"]
+      - id: ruff-format
+
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.12.10
+    hooks:
+      # `uv.lock` is committed, so it has to stay in step with `pyproject.toml`
+      - id: uv-lock
+
+  - repo: https://github.com/astral-sh/ty-pre-commit
+    rev: v0.0.79
+    hooks:
+      # `ty` needs the project dependencies resolvable. it auto-detects `.venv`,
+      # so create one first: `uv venv --python 3.12 && uv pip install -e ".[jit,examples,test]"`
+      - id: ty

@@ -23,42 +23,42 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 import random
-from typing import Optional
-from typing import Tuple
-from typing import TypeVar
 
 import numpy as np
 
 from ruck._member import Member
 from ruck._member import Population
-from ruck.functional._select import SelectFnHint
 from ruck.functional._mate import MateFnHint
 from ruck.functional._mutate import MutateFnHint
+from ruck.functional._select import SelectFnHint
 from ruck.util._iter import chained
-
-
-# ========================================================================= #
-# Helper                                                                    #
-# ========================================================================= #
-
-
-T = TypeVar('T')
-
 
 # ========================================================================= #
 # Function Wrappers                                                         #
 # ========================================================================= #
 
 
-def apply_mate(
+def _shuffled[T](items: list[T]) -> list[T]:
+    """Shuffle via an index permutation, drawing the same values as `np.random.shuffle`.
+
+    numpy's docstring accepts a `MutableSequence`, but its stub narrows the
+    parameter to `ArrayLike`, which a list of arbitrary objects is not. Permuting
+    an index array instead is stub-clean and yields the identical permutation for
+    a given seed, so the RNG stream is unchanged.
+    """
+    idxs = np.arange(len(items))
+    np.random.shuffle(idxs)
+    return [items[i] for i in idxs]
+
+
+def apply_mate[T](
     population: Population[T],
     mate_fn: MateFnHint[T],
     p: float = 0.5,
     map_fn=map,
 ) -> Population[T]:
     # randomize order so we have randomized pairs
-    offspring = list(population)
-    np.random.shuffle(offspring)
+    offspring = _shuffled(list(population))
     # select random items
     idxs, pairs = [], []
     for i, (m0, m1) in enumerate(zip(offspring[0::2], offspring[1::2])):
@@ -69,8 +69,8 @@ def apply_mate(
     pairs = map_fn(lambda pair: mate_fn(pair[0], pair[1]), pairs)
     # update values
     for i, (v0, v1) in zip(idxs, pairs):
-        offspring[i*2+0] = Member(v0)
-        offspring[i*2+1] = Member(v1)
+        offspring[i * 2 + 0] = Member(v0)
+        offspring[i * 2 + 1] = Member(v1)
     # done!
     return offspring
 
@@ -98,7 +98,7 @@ def apply_mutate(
     return offspring
 
 
-def apply_mate_and_mutate(
+def apply_mate_and_mutate[T](
     population: Population[T],
     mate_fn: MateFnHint[T],
     mutate_fn: MutateFnHint[T],
@@ -120,21 +120,28 @@ def apply_mate_and_mutate(
     return offspring
 
 
-def _get_generate_member_fn(
+def _get_generate_member_fn[T](
     mate_fn: MateFnHint[T],
     mutate_fn: MutateFnHint[T],
     p_mate: float = 0.5,
     p_mutate: float = 0.5,
 ):
-    def _generate_member(a_b_r: Tuple[Member[T], Optional[Member[T]], float]) -> Member[T]:
+    def _generate_member(a_b_r: tuple[Member[T], Member[T] | None, float]) -> Member[T]:
         ma, mb, r = a_b_r
-        if   r < p_mate:            return Member(mate_fn(ma.value, mb.value)[0])  # Apply crossover | only take first item | mb is only defined for this case
-        elif r < p_mate + p_mutate: return Member(mutate_fn(ma.value))             # Apply mutation
-        else:                       return ma                                      # Apply reproduction
+        if r < p_mate:
+            assert mb is not None, "mb must be provided when mating"
+            return Member(
+                mate_fn(ma.value, mb.value)[0]
+            )  # Apply crossover | only take first item | mb is only defined for this case
+        elif r < p_mate + p_mutate:
+            return Member(mutate_fn(ma.value))  # Apply mutation
+        else:
+            return ma  # Apply reproduction
+
     return _generate_member
 
 
-def apply_mate_or_mutate_or_reproduce(
+def apply_mate_or_mutate_or_reproduce[T](
     population: Population[T],
     num_offspring: int,  # lambda_
     mate_fn: MateFnHint[T],
@@ -152,26 +159,35 @@ def apply_mate_or_mutate_or_reproduce(
 
     ** Should be equivalent to varOr from DEAP, but significantly faster for larger populations **
     """
-    assert (p_mate + p_mutate) <= 1.0, 'The sum of the crossover and mutation probabilities must be smaller or equal to 1.0.'
+    assert (p_mate + p_mutate) <= 1.0, (
+        "The sum of the crossover and mutation probabilities must be smaller or equal to 1.0."
+    )
 
     # get the actions to be performed
     # - the multinomial distribution models the numbers of
     #   times a specific outcome occurred after n trials
-    num_mate, num_mutate, num_reproduce = np.random.multinomial(num_offspring, [p_mate, p_mutate, 1-(p_mate+p_mutate)])
+    num_mate, num_mutate, num_reproduce = np.random.multinomial(
+        num_offspring, [p_mate, p_mutate, 1 - (p_mate + p_mutate)]
+    )
     # randomly sample the offspring
-    offspring_mate         = [random.choice(population)    for _ in range(num_mate)]
+    offspring_mate = [random.choice(population) for _ in range(num_mate)]
     offspring_pairs_mutate = [random.sample(population, 2) for _ in range(num_mutate)]
-    offspring_reproduce    = [random.choice(population)    for _ in range(num_reproduce)]
+    offspring_reproduce = [random.choice(population) for _ in range(num_reproduce)]
     # apply the mating and mutations
-    offspring_mate         = map_fn(mutate_fn, (m.value for m in offspring_mate))
-    offspring_pairs_mutate = map_fn(lambda pair: mate_fn(pair[0], pair[1]), ((m0.value, m1.value) for m0, m1 in offspring_pairs_mutate))
+    offspring_mate = map_fn(mutate_fn, (m.value for m in offspring_mate))
+    offspring_pairs_mutate = map_fn(
+        lambda pair: mate_fn(pair[0], pair[1]), ((m0.value, m1.value) for m0, m1 in offspring_pairs_mutate)
+    )
     # combine everything & shuffle
-    offspring = chained([
-        (Member(v) for v in offspring_mate),
-        (Member(v0) for v0, v1 in offspring_pairs_mutate),
-        offspring_reproduce
-    ])
-    np.random.shuffle(offspring)
+    offspring = _shuffled(
+        chained(
+            [
+                (Member(v) for v in offspring_mate),
+                (Member(v0) for v0, v1 in offspring_pairs_mutate),
+                offspring_reproduce,
+            ]
+        )
+    )
     # done!
     assert len(offspring) == num_offspring
     return offspring
@@ -182,42 +198,62 @@ def apply_mate_or_mutate_or_reproduce(
 # ========================================================================= #
 
 
-def make_ea(
+def make_ea[T](
     mate_fn: MateFnHint[T],
     mutate_fn: MutateFnHint[T],
     select_fn: SelectFnHint[T],
-    offspring_num: int = None,   # lambda
-    mode: str = 'simple',
+    offspring_num: int | None = None,  # lambda
+    mode: str = "simple",
     p_mate: float = 0.5,
     p_mutate: float = 0.5,
     map_fn=map,
 ):
     if offspring_num is not None:
-        assert offspring_num > 0, f'invalid arguments, the number of offspring: {repr(offspring_num)} (lambda) must be > 0'
+        assert offspring_num > 0, (
+            f"invalid arguments, the number of offspring: {repr(offspring_num)} (lambda) must be > 0"
+        )
 
-    if mode == 'simple':
+    if mode == "simple":
+
         def generate(population):
             num = len(population) if (offspring_num is None) else offspring_num
-            assert num == len(population), f'invalid arguments for mode={repr(mode)}, the number of offspring: {num} (lambda) must be equal to the size of the population: {len(population)} (mu)'
-            offspring = apply_mate_and_mutate(population=select_fn(population, len(population)), p_mate=p_mate, mate_fn=mate_fn, p_mutate=p_mutate, mutate_fn=mutate_fn, map_fn=map_fn)
+            assert num == len(population), (
+                f"invalid arguments for mode={repr(mode)}, the number of offspring: {num} (lambda) must be equal to the size of the population: {len(population)} (mu)"
+            )
+            offspring = apply_mate_and_mutate(
+                population=select_fn(population, len(population)),
+                p_mate=p_mate,
+                mate_fn=mate_fn,
+                p_mutate=p_mutate,
+                mutate_fn=mutate_fn,
+                map_fn=map_fn,
+            )
             return offspring
 
         def select(population, offspring):
             return offspring
 
-    elif mode == 'mu_plus_lambda':
+    elif mode == "mu_plus_lambda":
+
         def generate(population):
             num = len(population) if (offspring_num is None) else offspring_num
-            return apply_mate_or_mutate_or_reproduce(population, num, mate_fn=mate_fn, mutate_fn=mutate_fn, p_mate=p_mate, p_mutate=p_mutate, map_fn=map_fn)
+            return apply_mate_or_mutate_or_reproduce(
+                population, num, mate_fn=mate_fn, mutate_fn=mutate_fn, p_mate=p_mate, p_mutate=p_mutate, map_fn=map_fn
+            )
 
         def select(population: Population[T], offspring: Population[T]):
             return select_fn(population + offspring, len(population))
 
-    elif mode == 'mu_comma_lambda':
+    elif mode == "mu_comma_lambda":
+
         def generate(population):
             num = len(population) if (offspring_num is None) else offspring_num
-            assert num >= len(population), f'invalid arguments for mode={repr(mode)}, the number of offspring: {num} (lambda) must be greater than or equal to the size of the population: {len(population)} (mu)'
-            return apply_mate_or_mutate_or_reproduce(population, num, mate_fn=mate_fn, mutate_fn=mutate_fn, p_mate=p_mate, p_mutate=p_mutate, map_fn=map_fn)
+            assert num >= len(population), (
+                f"invalid arguments for mode={repr(mode)}, the number of offspring: {num} (lambda) must be greater than or equal to the size of the population: {len(population)} (mu)"
+            )
+            return apply_mate_or_mutate_or_reproduce(
+                population, num, mate_fn=mate_fn, mutate_fn=mutate_fn, p_mate=p_mate, p_mutate=p_mutate, map_fn=map_fn
+            )
 
         def select(population, offspring):
             return select_fn(offspring, len(population))

@@ -24,26 +24,9 @@
 
 
 import itertools
-import random
-from typing import Any
-from typing import Callable
-from typing import Iterable
-from typing import Iterator
-from typing import List
-from typing import Sequence
-from typing import Tuple
-from typing import TypeVar
-
-import numpy as np
-
-
-# ========================================================================= #
-# Helper                                                                    #
-# ========================================================================= #
-
-
-T = TypeVar('T')
-
+from collections.abc import Iterable
+from collections.abc import Iterator
+from collections.abc import Sequence
 
 # ========================================================================= #
 # iter                                                                      #
@@ -56,7 +39,7 @@ T = TypeVar('T')
 #             every Iterator is ALSO an Iterable
 
 
-def ipairs(items: Iterable[T]) -> Iterator[Tuple[T, T]]:
+def ipairs[T](items: Iterable[T]) -> Iterator[tuple[T, T]]:
     itr_a, itr_b = itertools.tee(items)
     itr_a = itertools.islice(itr_a, 0, None, 2)
     itr_b = itertools.islice(itr_b, 1, None, 2)
@@ -68,17 +51,31 @@ def ipairs(items: Iterable[T]) -> Iterator[Tuple[T, T]]:
 # ========================================================================= #
 
 
-def chained(list_of_lists: Iterable[Iterable[T]]) -> List[T]:
+def chained[T](list_of_lists: Iterable[Iterable[T]]) -> list[T]:
     return list(itertools.chain(*list_of_lists))
 
 
-def splits(items: Sequence[Any], num_chunks: int, keep_empty: bool = False) -> List[List[Any]]:
-    # np.array_split will return empty elements if required
+def splits[T](items: Sequence[T], num_chunks: int, keep_empty: bool = False) -> list[list[T]]:
+    """
+    Divide `items` into `num_chunks` contiguous, roughly equal-sized chunks.
+    - The first `len(items) % num_chunks` chunks get one extra item, matching
+      the chunking behaviour of `np.array_split`.
+    """
+    # empty chunks are only produced if explicitly requested
     if not keep_empty:
         num_chunks = min(num_chunks, len(items))
-    # we return a lists of lists, not a list of
-    # tuples so that it is compatible with ray.get
-    return [list(items) for items in np.array_split(items, num_chunks)]
+    if num_chunks <= 0:
+        raise ValueError("number of chunks must be greater than 0")
+    # split into contiguous chunks, we return lists of lists, not a list
+    # of tuples, so that it is compatible with ray.get
+    base_size, remainder = divmod(len(items), num_chunks)
+    chunks = []
+    start = 0
+    for i in range(num_chunks):
+        size = base_size + (1 if i < remainder else 0)
+        chunks.append(list(items[start : start + size]))
+        start += size
+    return chunks
 
 
 # ========================================================================= #

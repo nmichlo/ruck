@@ -116,14 +116,14 @@ class OneMaxMinimalModule(EaModule):
         return [max(random.sample(combined, k=3), key=lambda m: m.fitness) for _ in range(len(population))]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # create and train the population
     module = OneMaxMinimalModule()
     pop, logbook, halloffame = Trainer(generations=100, progress=True).fit(module)
 
-    print('initial stats:', logbook[0])
-    print('final stats:', logbook[-1])
-    print('best member:', halloffame.members[0])
+    print("initial stats:", logbook[0])
+    print("final stats:", logbook[-1])
+    print("best member:", halloffame.members[0])
 ```
 
 ### Advanced OneMax Example
@@ -153,7 +153,6 @@ from ruck import *
 
 
 class OneMaxModule(EaModule):
-
     def __init__(
         self,
         population_size: int = 300,
@@ -161,7 +160,7 @@ class OneMaxModule(EaModule):
         member_size: int = 100,
         p_mate: float = 0.5,
         p_mutate: float = 0.5,
-        ea_mode: str = 'simple'
+        ea_mode: str = "simple",
     ):
         # save the arguments to the .hparams property. values are taken from the
         # local scope so modifications can be captured if the call to this is delayed.
@@ -181,20 +180,17 @@ class OneMaxModule(EaModule):
         return map(np.sum, values)
 
     def gen_starting_values(self) -> Population:
-        return [
-            np.random.random(self.hparams.member_size) < 0.5
-            for i in range(self.hparams.population_size)
-        ]
+        return [np.random.random(self.hparams.member_size) < 0.5 for i in range(self.hparams.population_size)]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # create and train the population
     module = OneMaxModule(population_size=300, member_size=100)
     pop, logbook, halloffame = Trainer(generations=40, progress=True).fit(module)
 
-    print('initial stats:', logbook[0])
-    print('final stats:', logbook[-1])
-    print('best member:', halloffame.members[0])
+    print("initial stats:", logbook[0])
+    print("final stats:", logbook[-1])
+    print("best member:", halloffame.members[0])
 ```
 
 </p>
@@ -242,7 +238,6 @@ from ruck.external.ray import *
 
 
 class OneMaxRayModule(EaModule):
-
     def __init__(
         self,
         population_size: int = 300,
@@ -250,7 +245,7 @@ class OneMaxRayModule(EaModule):
         member_size: int = 100,
         p_mate: float = 0.5,
         p_mutate: float = 0.5,
-        ea_mode: str = 'mu_plus_lambda'
+        ea_mode: str = "mu_plus_lambda",
     ):
         self.save_hyperparameters()
         # implement the required functions for `EaModule`
@@ -282,13 +277,10 @@ class OneMaxRayModule(EaModule):
 
     def gen_starting_values(self):
         # generate objects and place in ray's object store
-        return [
-            ray.put(np.random.random(self.hparams.member_size) < 0.5)
-            for i in range(self.hparams.population_size)
-        ]
+        return [ray.put(np.random.random(self.hparams.member_size) < 0.5) for i in range(self.hparams.population_size)]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # initialize ray to use the specified system resources
     ray.init()
 
@@ -296,9 +288,9 @@ if __name__ == '__main__':
     module = OneMaxRayModule(population_size=128, member_size=1_000_000)
     pop, logbook, halloffame = Trainer(generations=200, progress=True).fit(module)
 
-    print('initial stats:', logbook[0])
-    print('final stats:', logbook[-1])
-    print('best member:', halloffame.members[0])
+    print("initial stats:", logbook[0])
+    print("final stats:", logbook[-1])
+    print("best member:", halloffame.members[0])
 ```
 
 </p>

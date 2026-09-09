@@ -53,27 +53,27 @@ class MultiObjectiveMinimalModule(EaModule):
         return select_nsga2(population + offspring, len(population))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # create and train the population
     module = MultiObjectiveMinimalModule()
     pop, logbook, halloffame = Trainer(generations=100, progress=True).fit(module)
 
-    print('initial stats:', logbook[0])
-    print('final stats:', logbook[-1])
-    print('best member:', halloffame.members[0])
+    print("initial stats:", logbook[0])
+    print("final stats:", logbook[-1])
+    print("best member:", halloffame.members[0])
 
     # plot path
     fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(10, 5))
     # plot points
-    ax0.set_title('Pareto Optimal Values')
+    ax0.set_title("Pareto Optimal Values")
     ax0.scatter(*zip(*(m.value for m in pop)))
-    ax0.set_xlabel('X')
-    ax0.set_ylabel('Y')
+    ax0.set_xlabel("X")
+    ax0.set_ylabel("Y")
     # plot pareto optimal solution
-    ax1.set_title('Pareto Optimal Scores')
+    ax1.set_title("Pareto Optimal Scores")
     ax1.scatter(*zip(*(m.fitness for m in pop)))
-    ax1.set_xlabel('Distances')
-    ax1.set_ylabel('Smoothness')
+    ax1.set_xlabel("Distances")
+    ax1.set_ylabel("Smoothness")
     # display
     fig.tight_layout()
     plt.show()

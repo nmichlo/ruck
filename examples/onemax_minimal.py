@@ -22,7 +22,9 @@
 
 
 import random
+
 import numpy as np
+
 from ruck import *
 
 
@@ -53,11 +55,11 @@ class OneMaxMinimalModule(EaModule):
         return [max(random.sample(combined, k=3), key=lambda m: m.fitness) for _ in range(len(population))]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # create and train the population
     module = OneMaxMinimalModule()
     pop, logbook, halloffame = Trainer(generations=100, progress=True).fit(module)
 
-    print('initial stats:', logbook[0])
-    print('final stats:', logbook[-1])
-    print('best member:', halloffame.members[0])
+    print("initial stats:", logbook[0])
+    print("final stats:", logbook[-1])
+    print("best member:", halloffame.members[0])

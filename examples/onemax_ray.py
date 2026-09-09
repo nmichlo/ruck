@@ -31,21 +31,30 @@ and its object store we can do this efficiently!
 """
 
 from functools import partial
+
 import numpy as np
+
 from ruck import *
 from ruck.external.ray import *
 
 
-class OneMaxRayModule(EaModule):
+# numpy 2 wraps `np.mean` in a `_ArrayFunctionDispatcher`, which is neither a
+# function nor a class -- `ray.remote` rejects it outright. a thin wrapper gives
+# ray the plain function it checks for.
+def _mean(values: np.ndarray) -> np.floating:
+    return np.mean(values)
 
+
+class OneMaxRayModule(EaModule):
     def __init__(
         self,
         population_size: int = 300,
-        offspring_num: int = None,  # offspring_num (lambda) is automatically set to population_size (mu) when `None`
+        offspring_num: int
+        | None = None,  # offspring_num (lambda) is automatically set to population_size (mu) when `None`
         member_size: int = 100,
         p_mate: float = 0.5,
         p_mutate: float = 0.5,
-        ea_mode: str = 'mu_plus_lambda'
+        ea_mode: str = "mu_plus_lambda",
     ):
         self.save_hyperparameters()
         # implement the required functions for `EaModule`
@@ -67,7 +76,7 @@ class OneMaxRayModule(EaModule):
         # multiple calls to ray.remote. We use ray.remote instead of
         # ray_remote_put like above because we want the returned values
         # not object refs to those values.
-        self._ray_eval = ray.remote(np.mean).remote
+        self._ray_eval = ray.remote(_mean).remote
 
     def evaluate_values(self, values):
         # values is a list of `ray.ObjectRef`s not `np.ndarray`s
@@ -77,13 +86,10 @@ class OneMaxRayModule(EaModule):
 
     def gen_starting_values(self):
         # generate objects and place in ray's object store
-        return [
-            ray.put(np.random.random(self.hparams.member_size) < 0.5)
-            for i in range(self.hparams.population_size)
-        ]
+        return [ray.put(np.random.random(self.hparams.member_size) < 0.5) for i in range(self.hparams.population_size)]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # initialize ray to use the specified system resources
     ray.init()
 
@@ -91,6 +97,6 @@ if __name__ == '__main__':
     module = OneMaxRayModule(population_size=128, member_size=1_000_000)
     pop, logbook, halloffame = Trainer(generations=200, progress=True).fit(module)
 
-    print('initial stats:', logbook[0])
-    print('final stats:', logbook[-1])
-    print('best member:', halloffame.members[0])
+    print("initial stats:", logbook[0])
+    print("final stats:", logbook[-1])
+    print("best member:", halloffame.members[0])

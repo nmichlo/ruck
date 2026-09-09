@@ -28,10 +28,7 @@ This version of NSGA-II is inspired by that from DEAP.
   support, with benchmarks over 65x faster for large arrays.
 """
 
-
-from typing import List
-from typing import Optional
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 
@@ -41,14 +38,13 @@ from ruck.functional._select import check_selection
 from ruck.util._array import arggroup
 from ruck.util._population import population_fitnesses
 
-
 # ========================================================================= #
 # Helper                                                                    #
 # ========================================================================= #
 
 
 @check_selection
-def select_nsga2(population: Population, num: int, weights: Optional[Sequence[float]] = None):
+def select_nsga2(population: Population, num: int, weights: Sequence[float] | None = None):
     """
     NSGA-II works by:
         1. grouping the population fitness values into successive fronts with non-dominated sorting.
@@ -87,11 +83,13 @@ def select_nsga2(population: Population, num: int, weights: Optional[Sequence[fl
     #    NOTE: should this not operate over all elements? this feels weird just over the last front?
     if missing > 0:
         assert len(fronts[-1]) >= missing
-        front_fitnesses = [population[i].fitness for i in fronts[-1]]  # TODO: `front_fitnesses = fitnesses[fronts[-1]]` should work, something is wrong with the `get_crowding_distances` function!
+        front_fitnesses = [
+            population[i].fitness for i in fronts[-1]
+        ]  # TODO: `front_fitnesses = fitnesses[fronts[-1]]` should work, something is wrong with the `get_crowding_distances` function!
         # compute distances
         dists = compute_crowding_distances(front_fitnesses)
         idxs = np.argsort(-np.array(dists))
-        chosen.extend(fronts[-1][i] for i in idxs[:num - len(chosen)])
+        chosen.extend(fronts[-1][i] for i in idxs[: num - len(chosen)])
     # return the original members
     assert len(chosen) == num
     return [population[i] for i in chosen]
@@ -102,7 +100,9 @@ def select_nsga2(population: Population, num: int, weights: Optional[Sequence[fl
 # ========================================================================= #
 
 
-def argsort_non_dominated(fitnesses: np.array, at_least_n: int = None, first_front_only=False) -> List[List[int]]:
+def argsort_non_dominated(
+    fitnesses: np.ndarray, at_least_n: int | None = None, first_front_only: bool = False
+) -> list[list[int]]:
     """
     Perform non-dominated arg-sorting on the elements in the array
     - The indices are contained in "fonts". Each front is a list of points
@@ -162,7 +162,7 @@ def _argsort_non_dominated_unique(
     first_front = []
     # store the counts for each value based on
     # the number of elements that dominate it
-    dominated_count = np.zeros(U, dtype='int')
+    dominated_count = np.zeros(U, dtype="int")
 
     # construct a list of lists to store all the indices of the
     # items that the parent item dominates
@@ -176,7 +176,7 @@ def _argsort_non_dominated_unique(
     for i, i_fit in enumerate(unique_values):
         # check if a fitness value is dominated by any of the other fitness values
         # and update its statistics if it is
-        for j, j_fit in zip(range(i+1, U), unique_values[i + 1:]):
+        for j, j_fit in zip(range(i + 1, U), unique_values[i + 1 :]):
             if _dominates(i_fit, j_fit):
                 dominated_count[j] += 1
                 dominates_lists[i].append(j)
@@ -217,7 +217,7 @@ def _argsort_non_dominated_unique(
         # make sure that there is not an infinite
         # loop if there is accidentally a bug!
         if not added:
-            raise RuntimeError('This is a bug!')
+            raise RuntimeError("This is a bug!")
         # exit early
         if num_selected >= N:
             return fronts
@@ -266,6 +266,7 @@ def _dominates(w_fitness, w_fitness_other):
 # ┏ shape=(16384, 2)  | OLD: 0.029240s NEW: 0.002433s SPEEDUP: 12.016264 | OLD: 0.028420s NEW: 0.002033s SPEEDUP: 13.977902 ┓ #
 # ┗ shape=(16384, 16) | OLD: 0.214716s NEW: 0.020512s SPEEDUP: 10.467601 | OLD: 0.212408s NEW: 0.016327s SPEEDUP: 13.009210 ┛ #
 
+
 def compute_crowding_distances(positions) -> np.ndarray:
     """
     Compute the crowding distance for each position in an array.
@@ -284,7 +285,7 @@ def compute_crowding_distances(positions) -> np.ndarray:
     """
     # make sure we have the right datatype
     if not isinstance(positions, np.ndarray):
-        positions = np.array(positions, dtype='float64')
+        positions = np.array(positions, dtype="float64")
     return _get_crowding_distances(positions)
 
 
@@ -295,9 +296,9 @@ def _get_crowding_distances(positions: np.ndarray) -> np.ndarray:
     N, F = positions.shape
     # exit early
     if N == 0:
-        return np.zeros(0, dtype='float64')
+        return np.zeros(0, dtype="float64")
     # store for the values
-    distances = np.zeros(N, dtype='float64')
+    distances = np.zeros(N, dtype="float64")
     # 1. for each fitness component, update the distance for each member!
     for crowd in positions.T:
         # 2. sort in increasing order

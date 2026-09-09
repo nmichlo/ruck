@@ -22,58 +22,49 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-from typing import Any
-from typing import Dict
-from typing import Generic
-from typing import List
-from typing import Sequence
-from typing import TypeVar
+from collections.abc import Sequence
 
 import numpy as np
 
 from ruck._history import StatsGroup
+from ruck._member import Fitness
 from ruck._member import Population
 from ruck.util._args import HParamsMixin
-
 
 # ========================================================================= #
 # Module                                                                    #
 # ========================================================================= #
 
 
-T = TypeVar('T')
-
-
-class EaModule(Generic[T], HParamsMixin):
-
+class EaModule[T](HParamsMixin):
     # OVERRIDABLE DEFAULTS
 
-    def get_stats_groups(self) -> Dict[str, StatsGroup[T, Any]]:
+    def get_stats_groups(self) -> dict[str, StatsGroup[Population[T], list[Fitness]]]:
         # default stats groups
         return {
-            'fit': StatsGroup(
+            "fit": StatsGroup(
                 lambda pop: [m.fitness for m in pop],
-                min =lambda fitnesses: np.min(fitnesses,  axis=0).tolist(),
-                max =lambda fitnesses: np.max(fitnesses,  axis=0).tolist(),
-                mean=lambda fitnesses: np.mean(fitnesses, axis=0, dtype='float64').tolist(),
-                std =lambda fitnesses: np.std(fitnesses,  axis=0, dtype='float64').tolist(),
+                min=lambda fitnesses: np.min(fitnesses, axis=0).tolist(),
+                max=lambda fitnesses: np.max(fitnesses, axis=0).tolist(),
+                mean=lambda fitnesses: np.mean(fitnesses, axis=0, dtype="float64").tolist(),
+                std=lambda fitnesses: np.std(fitnesses, axis=0, dtype="float64").tolist(),
             )
         }
 
     def get_progress_stats(self) -> Sequence[str]:
         # which stats are included in the progress bar
         # - values added by trainer
-        return ('evals', 'fit:max')
+        return ("evals", "fit:max")
 
     # REQUIRED
 
-    def gen_starting_values(self) -> List[T]:
+    def gen_starting_values(self) -> list[T]:
         raise NotImplementedError
 
     def generate_offspring(self, population: Population[T]) -> Population[T]:
         raise NotImplementedError
 
-    def evaluate_values(self, values: List[T]) -> List[float]:
+    def evaluate_values(self, values: list[T]) -> list[float]:
         raise NotImplementedError
 
     def select_population(self, population: Population[T], offspring: Population[T]) -> Population[T]:

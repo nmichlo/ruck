@@ -41,13 +41,17 @@ def optional_njit(*args, cache=True, **kwargs):
             import numba
         except ImportError:
             import warnings
-            warnings.warn(f'Performance of {fn.__name__} will be slow. Skipping JIT compilation because numba is not installed!')
+
+            warnings.warn(
+                f"Performance of {fn.__name__} will be slow. Skipping JIT compilation because numba is not installed!"
+            )
             numba = None
         # handle cases
         if numba is not None:
             fn = numba.njit(*args, cache=cache, **kwargs)(fn)
         # done!
         return fn
+
     # return decorator
     return _decorator
 

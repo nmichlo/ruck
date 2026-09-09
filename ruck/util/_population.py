@@ -22,17 +22,18 @@
 #  SOFTWARE.
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
-from typing import Sequence
-import numpy as np
-from ruck import Population
+from collections.abc import Sequence
 
+import numpy as np
+
+from ruck import Population
 
 # ========================================================================= #
 # Population Helper                                                         #
 # ========================================================================= #
 
 
-def population_fitnesses(population: Population, weights: Sequence[float] = None) -> np.ndarray:
+def population_fitnesses(population: Population, weights: Sequence[float] | None = None) -> np.ndarray:
     """
     Obtain an array of normalized fitness values from a population, the output
     shape always has two dimensions. (len(population), len(fitness))
@@ -51,13 +52,13 @@ def population_fitnesses(population: Population, weights: Sequence[float] = None
         return fitnesses
     # handle weights
     if weights is not None:
-        weights = np.array(weights)
+        weights_arr = np.array(weights)
         # check dims
-        if weights.ndim == 0:
-            weights = weights[None]
-        assert weights.ndim == 1
+        if weights_arr.ndim == 0:
+            weights_arr = weights_arr[None]
+        assert weights_arr.ndim == 1
         # multiply
-        fitnesses *= weights[None, :]
+        fitnesses *= weights_arr[None, :]
         assert fitnesses.ndim == 2
     # done
     return fitnesses  # shape: (len(population), len(fitness))

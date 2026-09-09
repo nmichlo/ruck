@@ -24,27 +24,20 @@
 
 import dataclasses
 import heapq
-from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import Generic
-from typing import List
-from typing import TypeVar
+from collections.abc import Callable
+from typing import Protocol
 
+from ruck._member import Fitness
+from ruck._member import Member
 from ruck._member import Population
-
-
-T = TypeVar('T')
-V = TypeVar('V')
-
 
 # ========================================================================= #
 # Type Hints                                                                #
 # ========================================================================= #
 
 
-ValueFnHint     = Callable[[T], V]
-StatFnHint      = Callable[[V], Any]
+type ValueFnHint[T, V] = Callable[[T], V]
+type StatFnHint[V] = Callable[[V], object]
 
 
 # ========================================================================= #
@@ -52,30 +45,37 @@ StatFnHint      = Callable[[V], Any]
 # ========================================================================= #
 
 
-class StatsGroup(Generic[T, V]):
+class StatsGroupLike[T](Protocol):
+    """
+    The subset of `StatsGroup`'s interface that `Logbook` relies on.
+    - Deliberately hides the `StatsGroup`'s second type parameter (the
+      intermediate, transformed value type), which callers never see.
+    """
 
-    def __init__(self, value_fn: ValueFnHint[T, V] = None, **stats_fns: StatFnHint[V]):
+    @property
+    def keys(self) -> list[str]: ...
+
+    def compute(self, value: T) -> dict[str, object]: ...
+
+
+class StatsGroup[T, V]:
+    def __init__(self, value_fn: ValueFnHint[T, V], **stats_fns: StatFnHint[V]):
         assert all(str.isidentifier(key) for key in stats_fns.keys())
         assert stats_fns
         self._value_fn = value_fn
         self._stats_fns = stats_fns
 
     @property
-    def keys(self) -> List[str]:
+    def keys(self) -> list[str]:
         return list(self._stats_fns.keys())
 
-    def compute(self, value: T) -> Dict[str, Any]:
-        if self._value_fn is not None:
-            value = self._value_fn(value)
-        return {
-            key: stat_fn(value)
-            for key, stat_fn in self._stats_fns.items()
-        }
+    def compute(self, value: T) -> dict[str, object]:
+        transformed = self._value_fn(value)
+        return {key: stat_fn(transformed) for key, stat_fn in self._stats_fns.items()}
 
 
-class Logbook(Generic[T]):
-
-    def __init__(self, *external_keys: str, **stats_groups: StatsGroup[T, Any]):
+class Logbook[T]:
+    def __init__(self, *external_keys: str, **stats_groups: StatsGroupLike[Population[T]]):
         self._all_ordered_keys = []
         self._external_keys = []
         self._stats_groups = {}
@@ -88,14 +88,14 @@ class Logbook(Generic[T]):
 
     def _assert_key_valid(self, name: str):
         if not str.isidentifier(name):
-            raise ValueError(f'stat name is not a valid identifier: {repr(name)}')
+            raise ValueError(f"stat name is not a valid identifier: {repr(name)}")
         return name
 
     def _assert_key_available(self, name: str):
         if name in self._external_keys:
-            raise ValueError(f'external stat already named: {repr(name)}')
+            raise ValueError(f"external stat already named: {repr(name)}")
         if name in self._stats_groups:
-            raise ValueError(f'stat group already named: {repr(name)}')
+            raise ValueError(f"stat group already named: {repr(name)}")
         return name
 
     def register_external_stat(self, name: str):
@@ -105,25 +105,27 @@ class Logbook(Generic[T]):
         self._all_ordered_keys.append(name)
         return self
 
-    def register_stats_group(self, name: str, stats_group: StatsGroup[T, Any]):
+    def register_stats_group(self, name: str, stats_group: StatsGroupLike[Population[T]]):
         self._assert_key_available(self._assert_key_available(name))
         assert isinstance(stats_group, StatsGroup)
         assert stats_group not in self._stats_groups.values()
         # add stat group
         self._stats_groups[name] = stats_group
-        self._all_ordered_keys.extend(f'{name}:{key}' for key in stats_group.keys)
+        self._all_ordered_keys.extend(f"{name}:{key}" for key in stats_group.keys)
         return self
 
     def record(self, population: Population[T], **external_values):
         # extra stats
         if set(external_values.keys()) != set(self._external_keys):
-            raise KeyError(f'required external_values: {sorted(self._external_keys)}, got: {sorted(external_values.keys())}')
+            raise KeyError(
+                f"required external_values: {sorted(self._external_keys)}, got: {sorted(external_values.keys())}"
+            )
         # external values
         stats = dict(external_values)
         # generate stats
         for name, stat_group in self._stats_groups.items():
             for key, value in stat_group.compute(population).items():
-                stats[f'{name}:{key}'] = value
+                stats[f"{name}:{key}"] = value
         # order stats
         assert set(stats.keys()) == set(self._all_ordered_keys)
         record = {k: stats[k] for k in self._all_ordered_keys}
@@ -132,7 +134,7 @@ class Logbook(Generic[T]):
         return dict(record)
 
     @property
-    def history(self) -> List[Dict[str, Any]]:
+    def history(self) -> list[dict[str, object]]:
         return list(self._history)
 
     def __getitem__(self, idx: int):
@@ -153,9 +155,9 @@ class Logbook(Generic[T]):
 
 
 @dataclasses.dataclass(order=True)
-class HallOfFameItem:
-    fitness: float
-    member: Any = dataclasses.field(compare=False)
+class HallOfFameItem[T]:
+    fitness: Fitness
+    member: Member[T] = dataclasses.field(compare=False)
 
 
 class HallOfFameFrozenError(Exception):
@@ -166,26 +168,25 @@ class HallOfFameNotFrozenError(Exception):
     pass
 
 
-class HallOfFame(Generic[T]):
-
+class HallOfFame[T]:
     def __init__(self, n_best: int = 5, maximize: bool = True):
         self._maximize = maximize
         assert maximize
         self._n_best = n_best
-        # update values
-        self._heap = []  # element 0 is always the smallest
-        self._scores = {}
-        # frozen values
+        # update values, cleared once frozen
+        self._heap: list[HallOfFameItem[T]] | None = []  # element 0 is always the smallest
+        self._scores: dict[Fitness, HallOfFameItem[T]] | None = {}
+        # frozen values, only set once frozen
         self._frozen = False
-        self._frozen_members = None
-        self._frozen_values = None
-        self._frozen_scores = None
+        self._frozen_members: Population[T] | None = None
 
     def update(self, population: Population[T]):
         if self.is_frozen:
-            raise HallOfFameFrozenError('The hall of fame has been frozen, no more members can be added!')
+            raise HallOfFameFrozenError("The hall of fame has been frozen, no more members can be added!")
+        assert self._heap is not None
+        assert self._scores is not None
         # get potential best in population
-        best = sorted(population, key=lambda m: m.fitness, reverse=True)[:self._n_best]
+        best = sorted(population, key=lambda m: m.fitness, reverse=True)[: self._n_best]
         # add the best
         for member in best:
             # try add to hall of fame
@@ -202,9 +203,10 @@ class HallOfFame(Generic[T]):
                 removed = heapq.heappushpop(self._heap, item)
                 del self._scores[removed.fitness]
 
-    def freeze(self) -> 'HallOfFame':
+    def freeze(self) -> "HallOfFame[T]":
         if self.is_frozen:
-            raise HallOfFameFrozenError('The hall of fame has already been frozen, cannot freeze again!')
+            raise HallOfFameFrozenError("The hall of fame has already been frozen, cannot freeze again!")
+        assert self._heap is not None
         # freeze
         self._frozen = True
         self._frozen_members = [m.member for m in sorted(self._heap, reverse=True)]  # 0 is best, -1 is worst
@@ -219,22 +221,31 @@ class HallOfFame(Generic[T]):
 
     @property
     def members(self) -> Population[T]:
+        assert self._frozen_members is not None
         return list(self._frozen_members)
 
     def __getitem__(self, idx: int):
         if not self.is_frozen:
-            raise HallOfFameNotFrozenError('The hall of fame has not yet been frozen by a completed training run, cannot access members!')
+            raise HallOfFameNotFrozenError(
+                "The hall of fame has not yet been frozen by a completed training run, cannot access members!"
+            )
         assert isinstance(idx, int)
+        assert self._frozen_members is not None
         return self._frozen_members[idx]
 
     def __len__(self):
         if not self.is_frozen:
-            raise HallOfFameNotFrozenError('The hall of fame has not yet been frozen by a completed training run, cannot access length!')
+            raise HallOfFameNotFrozenError(
+                "The hall of fame has not yet been frozen by a completed training run, cannot access length!"
+            )
+        assert self._frozen_members is not None
         return len(self._frozen_members)
 
     def __iter__(self):
         if not self.is_frozen:
-            raise HallOfFameNotFrozenError('The hall of fame has not yet been frozen by a completed training run, cannot access members!')
+            raise HallOfFameNotFrozenError(
+                "The hall of fame has not yet been frozen by a completed training run, cannot access members!"
+            )
         for i in range(len(self)):
             yield self[i]
 

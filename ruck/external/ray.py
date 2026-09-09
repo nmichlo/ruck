@@ -23,16 +23,15 @@
 #  ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
 
 import functools
-from typing import Any
-from typing import Callable
-from typing import List
-from typing import Sequence
+from collections.abc import Callable
+from collections.abc import Sequence
 
 try:
     import ray
 except ImportError as e:
     import warnings
-    warnings.warn('failed to import ray, please install it: $ pip install ray')
+
+    warnings.warn("failed to import ray, please install it: $ pip install ray")
     raise e
 
 # ========================================================================= #
@@ -40,7 +39,7 @@ except ImportError as e:
 # ========================================================================= #
 
 
-def ray_map(remote_fn: Callable[[Any], ray.ObjectRef], items: Sequence[Any]) -> List[Any]:
+def ray_map[T](remote_fn: Callable[[T], ray.ObjectRef], items: Sequence[T]) -> list[T]:
     """
     A simple ray alternative to `map`, input function should be
     a remote function that returns an object reference / future value
@@ -54,7 +53,7 @@ def ray_map(remote_fn: Callable[[Any], ray.ObjectRef], items: Sequence[Any]) -> 
 # ========================================================================= #
 
 
-def ray_remote_put(fn = None, iter_results: bool = False, **ray_remote_kwargs):
+def ray_remote_put(fn=None, iter_results: bool = False, **ray_remote_kwargs):
     """
     Wrap a function using ray.remote but automatically put the
     results in the object store instead of returning the values!
@@ -84,13 +83,14 @@ def ray_remote_put(fn = None, iter_results: bool = False, **ray_remote_kwargs):
                 return tuple(ray.put(v) for v in result)
             else:
                 return ray.put(result)
+
         # ray remote
         if ray_remote_kwargs:
-            inner = ray.remote(**ray_remote_kwargs)(inner)
+            remote_inner = ray.remote(**ray_remote_kwargs)(inner)
         else:
-            inner = ray.remote(inner)
+            remote_inner = ray.remote(inner)
         # done!
-        return inner
+        return remote_inner
 
     # handle correct case
     if fn is None:
@@ -99,7 +99,7 @@ def ray_remote_put(fn = None, iter_results: bool = False, **ray_remote_kwargs):
         return wrapper(fn)
 
 
-def ray_remote_puts(fn = None, **ray_remote_kwargs):
+def ray_remote_puts(fn=None, **ray_remote_kwargs):
     """
     Like `ray_remote_put` but iterates over results.
 
