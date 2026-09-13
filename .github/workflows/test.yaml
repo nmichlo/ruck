@@ -5,13 +5,30 @@ on:
   push:
     branches: [main]
 
+# least privilege: jobs that need more declare it themselves, and a job-level
+# `permissions:` replaces this one rather than adding to it.
+permissions:
+  contents: read
+
 jobs:
   # one job only: `test_nsga2.py` needs deap and `test_ruck.py` needs ray, both from
   # the `examples` extra, and ruck has no marker convention to split them out. a
   # base-deps job would have nothing left to run.
-  test:
+  pytest:
     uses: nmichlo/.github/.github/workflows/pytest.yaml@main
     with:
       python-versions: '["3.12", "3.13"]'
       install-extras: "jit,examples,test"
       pytest-args: "--color=yes --verbose"
+
+  # The branch-protection gate; see nmichlo/.github/actions/gate for why it
+  # exists. `always()` is required, or the gate is skipped when what it guards
+  # fails -- and a skipped required check counts as success.
+  test:
+    needs: [pytest]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: nmichlo/.github/actions/gate@main
+        with:
+          needs: ${{ toJSON(needs) }}
