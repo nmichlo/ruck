@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
 
+# least privilege: jobs that need more declare it themselves, and a job-level
+# `permissions:` replaces this one rather than adding to it.
+permissions:
+  contents: read
+
 jobs:
   # one job only: `test_nsga2.py` needs deap and `test_ruck.py` needs ray, both from
   # the `examples` extra, and ruck has no marker convention to split them out. a
