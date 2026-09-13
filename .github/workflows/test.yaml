@@ -9,9 +9,32 @@ jobs:
   # one job only: `test_nsga2.py` needs deap and `test_ruck.py` needs ray, both from
   # the `examples` extra, and ruck has no marker convention to split them out. a
   # base-deps job would have nothing left to run.
-  test:
+  pytest:
     uses: nmichlo/.github/.github/workflows/pytest.yaml@main
     with:
       python-versions: '["3.12", "3.13"]'
       install-extras: "jit,examples,test"
       pytest-args: "--color=yes --verbose"
+
+  # The branch-protection gate. A required status check is matched by name, and
+  # every name the jobs above produce is unstable: a reusable job is called
+  # "<caller-job> / <callee-job>" and a matrix job is called "job (3.12)", so
+  # renaming a job or changing a matrix silently stops the required check from
+  # reporting -- and every PR then waits on it forever. This job is plain, so
+  # its check is always exactly "test".
+  test:
+    needs: [pytest]
+    # always(), or the gate is skipped when what it guards fails -- and a
+    # skipped required check counts as success.
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: ${RESULTS}"
+          read -r -a outcomes <<< "${RESULTS}"
+          for outcome in "${outcomes[@]}"; do
+            [ "${outcome}" = "success" ] || exit 1
+          done
